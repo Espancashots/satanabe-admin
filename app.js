@@ -564,7 +564,18 @@ $('createForm').addEventListener('submit', async (e) => {
   $('submitCreate').textContent = 'Gerar key'
 })
 
-$('closeResult').addEventListener('click', () => $('resultDialog').close())
+document.addEventListener('click', (e) => {
+  const closeButton = e.target.closest('[data-close-dialog]')
+  if (!closeButton) return
+  e.preventDefault()
+  e.stopPropagation()
+  const dialog = closeButton.closest('dialog')
+  if (dialog?.open) dialog.close('cancel')
+})
+
+// No iPhone/Safari, tapping the X inside a form must never submit the form.
+// The close buttons are type=button and are handled explicitly above.
+
 $('copyCreatedKey').addEventListener('click', async () => {
   const key = $('createdKey').textContent
   await navigator.clipboard.writeText(key)

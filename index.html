@@ -106,7 +106,7 @@
           <div class="eyebrow">NOVA LICENÇA</div>
           <h3>Criar key</h3>
         </div>
-        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Fechar">×</button>
       </div>
 
       <label>
@@ -143,7 +143,7 @@
           <div class="eyebrow" id="createdEyebrow">KEY CRIADA</div>
           <h3 id="createdTitle">Copie agora</h3>
         </div>
-        <button id="closeResult" class="icon-button" aria-label="Fechar">×</button>
+        <button id="closeResult" class="icon-button" type="button" data-close-dialog aria-label="Fechar">×</button>
       </div>
       <p class="muted" id="createdHelp">A key completa é mostrada aqui na criação. Guarde-a antes de fechar.</p>
       <div class="key-box" id="createdKey">—</div>
@@ -158,7 +158,7 @@
           <div class="eyebrow">EDITAR</div>
           <h3 id="editTitle">Licença</h3>
         </div>
-        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Fechar">×</button>
       </div>
       <input id="editLicenseId" type="hidden" />
       <label>
@@ -181,7 +181,7 @@
           <div class="eyebrow">NOVO PATCH</div>
           <h3>Importar para o app</h3>
         </div>
-        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Fechar">×</button>
       </div>
       <p class="muted modal-copy">O arquivo vai direto para o Storage privado do Supabase. O conteúdo do .3105 não é lido pelo painel.</p>
       <label>
@@ -215,7 +215,7 @@
           <div class="eyebrow">EDITAR PATCH</div>
           <h3 id="editPatchTitle">Patch</h3>
         </div>
-        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Fechar">×</button>
       </div>
       <input id="editPatchId" type="hidden" />
       <label>
@@ -240,6 +240,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=6"></script>
+  <script type="module" src="app.js?v=7"></script>
 </body>
 </html>

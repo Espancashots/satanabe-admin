@@ -20,3 +20,8 @@ Para publicar, substitua `index.html`, `styles.css`, `app.js` e `README.md` no r
 - Botão **Remover** em cada patch: remove o registro do catálogo, preferências relacionadas e tenta apagar o arquivo correspondente do Storage.
 - Campo **Quantidade de keys** em Criar key (1 a 100 por vez).
 - Resultado de criação em lote mostra todas as keys, uma por linha, com botão para copiar todas.
+
+
+## v7
+- Corrige os botões X/Fechar de todos os modais no Safari/iPhone.
+- Fechar a janela de Criar key não dispara mais a geração de uma key.
