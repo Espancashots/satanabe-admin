@@ -1,21 +1,19 @@
-# Satanabe Admin v9
+# Satanabe Admin v10
 
-Painel administrativo para o sistema de licenças e patches.
+Versão responsiva para **desktop, tablet e iPhone/mobile**, mantendo as funções da v9.
 
-## Novidades da v9
-
-- Dashboard com keys ativas, vencimentos, aparelhos, patches e receita do mês.
-- Clientes com nome, WhatsApp, e-mail, origem, tags, observações e histórico.
-- Criação de até 100 keys de uma vez com cliente, plano e valor vinculados.
-- Fila de renovações com WhatsApp, marcar como contatado e renovar por 1d, 7d, 30d ou 1 ano.
-- Gerenciamento individual de aparelhos por key.
-- Filtros e ações em massa para keys.
-- Exportação de keys em CSV/TXT e backup administrativo em JSON.
-- Patches com importar, editar, ativar/desativar, duplicar, ordenar, remover, histórico e rollback de versões.
-- Kill switch global e modo manutenção.
-- Log administrativo.
-- Modais customizados sem `<dialog>` para evitar o bug de fechar/submit no Safari do iPhone.
+## O que mudou no layout
+- Desktop: largura maior, resumo em grade, clientes em até 3 colunas e cards de keys/renovações em 2 colunas em telas largas.
+- Tablet: grades intermediárias e ações distribuídas sem apertar os cards.
+- Mobile: cards compactos, botões em grade de 2 colunas, ações em massa reorganizadas, modais em formato de painel inferior e textos/chaves quebrando corretamente.
+- Inputs usam 16px no iPhone para evitar zoom automático do Safari.
+- Sem `backdrop-filter`, evitando artefatos gráficos no Safari.
 
 ## Publicação
+Substitua no GitHub os arquivos:
+- `index.html`
+- `app.js`
+- `styles.css`
+- `README.md`
 
-Substitua `index.html`, `app.js`, `styles.css` e `README.md` na raiz do repositório GitHub Pages e faça commit na branch `main`.
+Depois aguarde o `pages build and deployment` ficar verde e abra o site com `?v=10`.
