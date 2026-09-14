@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090d" />
+  <title>Satanabe Admin</title>
+  <link rel="stylesheet" href="styles.css?v=5" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <main class="shell">
+    <section id="loginView" class="auth-view">
+      <div class="brand-mark">S</div>
+      <div class="eyebrow">PAINEL PRIVADO</div>
+      <h1>Satanabe Admin</h1>
+      <p class="muted center">Controle suas licenças pelo iPhone sem abrir o SQL Editor.</p>
+
+      <form id="loginForm" class="glass login-card">
+        <label>
+          <span>E-mail</span>
+          <input id="email" type="email" autocomplete="username" value="Jirobagamer@gmail.com" required />
+        </label>
+        <label>
+          <span>Senha</span>
+          <input id="password" type="password" autocomplete="current-password" placeholder="Sua senha do painel" required />
+        </label>
+        <button id="loginButton" class="primary wide" type="submit">Entrar</button>
+        <div id="loginError" class="error-text"></div>
+      </form>
+    </section>
+
+    <section id="dashboardView" class="dashboard hidden">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">SATANABE ADMIN</div>
+          <h2 id="pageTitle">Licenças</h2>
+        </div>
+        <div class="top-actions">
+          <button id="refreshButton" class="icon-button" aria-label="Atualizar">↻</button>
+          <button id="logoutButton" class="ghost">Sair</button>
+        </div>
+      </header>
+
+      <nav class="panel-tabs glass" aria-label="Painéis">
+        <button id="tabKeys" class="panel-tab active" data-panel="keys">Keys</button>
+        <button id="tabPatches" class="panel-tab" data-panel="patches">Patches</button>
+      </nav>
+
+      <section id="keysPanel">
+      <section class="summary-grid">
+        <article class="stat glass"><span>Ativas</span><strong id="statActive">0</strong></article>
+        <article class="stat glass"><span>Pendentes</span><strong id="statPending">0</strong></article>
+        <article class="stat glass"><span>Expiradas</span><strong id="statExpired">0</strong></article>
+        <article class="stat glass"><span>Revogadas</span><strong id="statRevoked">0</strong></article>
+      </section>
+
+      <section class="toolbar glass">
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input id="searchInput" type="text" placeholder="Buscar por nota ou colar a key completa" />
+        </div>
+        <button id="exactSearchButton" class="secondary">Buscar key</button>
+        <button id="expireRevokedButton" class="secondary warning-action">Expirar desativadas</button>
+        <button id="deleteExpiredButton" class="secondary danger-action">Excluir expiradas</button>
+        <button id="createButton" class="primary">+ Criar key</button>
+      </section>
+
+      <div id="flash" class="flash hidden"></div>
+      <section id="licenseList" class="license-list"></section>
+      <div id="emptyState" class="empty hidden">Nenhuma licença encontrada.</div>
+      </section>
+
+      <section id="patchesPanel" class="hidden">
+        <section class="patch-summary-grid">
+          <article class="stat glass"><span>Ativos</span><strong id="patchStatActive">0</strong></article>
+          <article class="stat glass"><span>Desativados</span><strong id="patchStatDisabled">0</strong></article>
+          <article class="stat glass"><span>Total</span><strong id="patchStatTotal">0</strong></article>
+        </section>
+
+        <section class="patch-toolbar glass">
+          <div class="patch-toolbar-copy">
+            <strong>Controle global</strong>
+            <span>Ative ou desative a disponibilidade dos patches no aplicativo.</span>
+          </div>
+          <div class="patch-toolbar-actions">
+            <button id="importPatchButton" class="primary">+ Importar patch</button>
+            <button id="enableAllPatches" class="secondary">Ativar todos</button>
+            <button id="disableAllPatches" class="secondary danger-action">Desativar todos</button>
+          </div>
+        </section>
+
+        <div id="patchFlash" class="flash hidden"></div>
+        <section id="patchList" class="patch-list"></section>
+        <div id="patchEmptyState" class="empty hidden">Nenhum patch cadastrado.</div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="createDialog" class="modal">
+    <form method="dialog" class="modal-card glass" id="createForm">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">NOVA LICENÇA</div>
+          <h3>Criar key</h3>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+      </div>
+
+      <label>
+        <span>Duração</span>
+        <select id="createDuration">
+          <option value="3h">3 horas</option>
+          <option value="10h">10 horas</option>
+          <option value="1d">1 dia</option>
+          <option value="3d">3 dias</option>
+          <option value="1w">1 semana</option>
+          <option value="1m" selected>30 dias</option>
+        </select>
+      </label>
+      <label>
+        <span>Limite de aparelhos</span>
+        <input id="createDevices" type="number" min="1" max="20" value="1" />
+      </label>
+      <label>
+        <span>Observação</span>
+        <input id="createNote" type="text" maxlength="200" placeholder="Ex.: João - WhatsApp" />
+      </label>
+      <button id="submitCreate" class="primary wide" type="submit" value="default">Gerar key</button>
+    </form>
+  </dialog>
+
+  <dialog id="resultDialog" class="modal">
+    <div class="modal-card glass">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">KEY CRIADA</div>
+          <h3>Copie agora</h3>
+        </div>
+        <button id="closeResult" class="icon-button" aria-label="Fechar">×</button>
+      </div>
+      <p class="muted">A key completa é mostrada aqui na criação. Guarde-a antes de fechar.</p>
+      <div class="key-box" id="createdKey">—</div>
+      <button id="copyCreatedKey" class="primary wide">Copiar key</button>
+    </div>
+  </dialog>
+
+  <dialog id="editDialog" class="modal">
+    <form method="dialog" class="modal-card glass" id="editForm">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">EDITAR</div>
+          <h3 id="editTitle">Licença</h3>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+      </div>
+      <input id="editLicenseId" type="hidden" />
+      <label>
+        <span>Observação</span>
+        <input id="editNote" type="text" maxlength="200" />
+      </label>
+      <label>
+        <span>Máximo de aparelhos</span>
+        <input id="editDevices" type="number" min="1" max="20" />
+      </label>
+      <button id="saveEdit" class="primary wide" type="submit" value="default">Salvar</button>
+    </form>
+  </dialog>
+
+
+  <dialog id="importPatchDialog" class="modal">
+    <form method="dialog" class="modal-card glass" id="importPatchForm">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">NOVO PATCH</div>
+          <h3>Importar para o app</h3>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+      </div>
+      <p class="muted modal-copy">O arquivo vai direto para o Storage privado do Supabase. O conteúdo do .3105 não é lido pelo painel.</p>
+      <label>
+        <span>Nome que aparece na IPA</span>
+        <input id="importPatchName" type="text" maxlength="120" placeholder="Ex.: HS Novo" required />
+      </label>
+      <label>
+        <span>Descrição que aparece na IPA</span>
+        <input id="importPatchDescription" type="text" maxlength="300" placeholder="Ex.: Configuração principal" />
+      </label>
+      <label>
+        <span>Arquivo .3105</span>
+        <input id="importPatchFile" type="file" accept=".3105,application/octet-stream" required />
+      </label>
+      <label>
+        <span>Status inicial</span>
+        <select id="importPatchEnabled">
+          <option value="true" selected>Ativo</option>
+          <option value="false">Desativado</option>
+        </select>
+      </label>
+      <div id="importPatchProgress" class="upload-progress hidden">Preparando upload…</div>
+      <button id="submitImportPatch" class="primary wide" type="submit" value="default">Importar patch</button>
+    </form>
+  </dialog>
+
+  <dialog id="editPatchDialog" class="modal">
+    <form method="dialog" class="modal-card glass" id="editPatchForm">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">EDITAR PATCH</div>
+          <h3 id="editPatchTitle">Patch</h3>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+      </div>
+      <input id="editPatchId" type="hidden" />
+      <label>
+        <span>Nome que aparece na IPA</span>
+        <input id="editPatchName" type="text" maxlength="120" required />
+      </label>
+      <label>
+        <span>Descrição que aparece na IPA</span>
+        <input id="editPatchDescription" type="text" maxlength="300" />
+      </label>
+      <div class="current-file-box">
+        <span>Arquivo atual</span>
+        <code id="editPatchCurrentPath">—</code>
+      </div>
+      <label>
+        <span>Substituir arquivo .3105 (opcional)</span>
+        <input id="editPatchFile" type="file" accept=".3105,application/octet-stream" />
+      </label>
+      <p class="muted modal-copy">Se você trocar o arquivo, o painel zera os estados salvos desse patch para evitar que um aparelho continue marcando a versão antiga como ligada.</p>
+      <div id="editPatchProgress" class="upload-progress hidden">Salvando…</div>
+      <button id="savePatchEdit" class="primary wide" type="submit" value="default">Salvar alterações</button>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js?v=5"></script>
+</body>
+</html>
