@@ -14,3 +14,9 @@ Painel web privado para administrar keys e patches pelo iPhone.
 O painel não interpreta o conteúdo dos arquivos `.3105`; ele apenas envia e referencia os arquivos no Storage.
 
 Para publicar, substitua `index.html`, `styles.css`, `app.js` e `README.md` no repositório usado pelo GitHub Pages.
+
+
+## v6
+- Botão **Remover** em cada patch: remove o registro do catálogo, preferências relacionadas e tenta apagar o arquivo correspondente do Storage.
+- Campo **Quantidade de keys** em Criar key (1 a 100 por vez).
+- Resultado de criação em lote mostra todas as keys, uma por linha, com botão para copiar todas.

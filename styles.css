@@ -257,3 +257,9 @@ input[type="file"]::file-selector-button {
   .patch-toolbar-actions { grid-template-columns: 1fr; }
   #importPatchButton { grid-column: auto; }
 }
+
+
+/* v6 — remover patches + geração em lote de keys */
+.key-box { white-space: pre-wrap; max-height: 320px; overflow: auto; }
+.patch-action .danger { background: rgba(255,95,109,.12); color: #ff8d98; border-color: rgba(255,95,109,.22); }
+#createQuantity { font-variant-numeric: tabular-nums; }

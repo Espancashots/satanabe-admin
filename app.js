@@ -183,6 +183,7 @@ function patchCard(p) {
       <div class="patch-action">
         <button class="mini" data-patch-action="edit" data-id="${p.id}">Editar</button>
         <button class="mini ${buttonClass}" data-patch-action="toggle" data-id="${p.id}" data-enabled="${String(!p.enabled)}">${buttonText}</button>
+        <button class="mini danger" data-patch-action="remove" data-id="${p.id}">Remover</button>
       </div>
     </article>`
 }
@@ -454,6 +455,41 @@ patchList.addEventListener('click', async (e) => {
     return
   }
 
+  if (action === 'remove') {
+    const ok = confirm(`Remover permanentemente ${patch.name || 'este patch'} do Supabase? Isso exclui o cadastro, as preferências relacionadas e tenta apagar o arquivo do Storage. Essa ação não pode ser desfeita.`)
+    if (!ok) return
+    btn.disabled = true
+    try {
+      if (patch.enabled) {
+        await patchApi({ action: 'set_enabled', patch_id: id, enabled: false })
+      }
+
+      const { error: deleteError } = await supabase
+        .from('patch_catalog')
+        .delete()
+        .eq('id', id)
+      if (deleteError) throw new Error(`Não foi possível remover o patch: ${deleteError.message}`)
+
+      let storageMessage = ''
+      const storagePath = String(patch.storage_path || '').trim()
+      if (storagePath) {
+        const candidates = storagePath.startsWith('Untitled folder/')
+          ? [storagePath]
+          : [storagePath, `Untitled folder/${storagePath}`]
+        const { error: storageError } = await supabase.storage.from('patches-3105').remove(candidates)
+        if (storageError) storageMessage = ' O cadastro foi removido, mas o arquivo do Storage não pôde ser apagado.'
+      }
+
+      showFlash(`${patch.name || 'Patch'} removido.${storageMessage}`, patchFlash)
+      await loadPatches()
+    } catch (err) {
+      showFlash(err.message, patchFlash)
+    } finally {
+      btn.disabled = false
+    }
+    return
+  }
+
   if (action !== 'toggle') return
   const enabled = btn.dataset.enabled === 'true'
   if (!enabled && !confirm(`Desativar ${patch.name || 'este patch'}?`)) return
@@ -496,21 +532,32 @@ $('createForm').addEventListener('submit', async (e) => {
   $('submitCreate').disabled = true
   $('submitCreate').textContent = 'Gerando…'
   try {
-    const data = await api({
+    const quantity = Math.max(1, Math.min(100, Number($('createQuantity').value) || 1))
+    const payload = {
       action: 'create',
       duration: $('createDuration').value,
       max_devices: Number($('createDevices').value),
       note: $('createNote').value.trim(),
-    })
+    }
+    const created = []
+    const concurrency = 4
+    for (let start = 0; start < quantity; start += concurrency) {
+      const batchSize = Math.min(concurrency, quantity - start)
+      const results = await Promise.all(Array.from({ length: batchSize }, () => api(payload)))
+      for (const data of results) if (data?.created?.license_key) created.push(data.created)
+      $('submitCreate').textContent = `Gerando ${created.length}/${quantity}…`
+    }
+
     $('createDialog').close()
-    const newKey = data.created.license_key
-    $('createdKey').textContent = newKey
+    const keys = created.map(item => item.license_key).filter(Boolean)
+    $('createdKey').textContent = keys.join('\n') || '—'
+    $('createdEyebrow').textContent = keys.length > 1 ? 'KEYS CRIADAS' : 'KEY CRIADA'
+    $('createdTitle').textContent = keys.length > 1 ? `${keys.length} keys geradas` : 'Copie agora'
+    $('createdHelp').textContent = keys.length > 1 ? 'As keys completas estão abaixo, uma por linha. Copie todas antes de fechar.' : 'A key completa é mostrada aqui na criação. Guarde-a antes de fechar.'
+    $('copyCreatedKey').textContent = keys.length > 1 ? 'Copiar todas as keys' : 'Copiar key'
     $('resultDialog').showModal()
     $('createNote').value = ''
-    try {
-      const found = await api({ action: 'search', key: newKey })
-      if (found?.found && found.license?.id) rememberKey(found.license.id, newKey)
-    } catch {}
+    $('createQuantity').value = '1'
     await loadDashboard()
   } catch (e) { showFlash(e.message) }
   $('submitCreate').disabled = false
@@ -521,7 +568,7 @@ $('closeResult').addEventListener('click', () => $('resultDialog').close())
 $('copyCreatedKey').addEventListener('click', async () => {
   const key = $('createdKey').textContent
   await navigator.clipboard.writeText(key)
-  showFlash('Key copiada.')
+  showFlash(key.includes('\n') ? 'Keys copiadas.' : 'Key copiada.')
 })
 
 $('deleteExpiredButton').addEventListener('click', async () => {
