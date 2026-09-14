@@ -1,739 +1,118 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.116.0'
 
-const SUPABASE_URL = 'https://agkjutuvfjcahckhjkra.supabase.co'
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_6oA2tFA2W-yfzK6GpL4Bhw_prNXvyvd'
-const API_URL = `${SUPABASE_URL}/functions/v1/admin-licenses-api`
-const PATCH_API_URL = `${SUPABASE_URL}/functions/v1/admin-patches-api`
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
-let allLicenses = []
-let exactLicense = null
-let allPatches = []
-let activePanel = 'keys'
-const KNOWN_KEYS_STORAGE = 'satanabe_admin_known_keys_v1'
-let knownKeys = loadKnownKeys()
-
-function loadKnownKeys() {
-  try { return JSON.parse(localStorage.getItem(KNOWN_KEYS_STORAGE) || '{}') || {} }
-  catch { return {} }
-}
-
-function rememberKey(licenseID, key) {
-  if (!licenseID || !key) return
-  knownKeys[licenseID] = key.trim().toUpperCase()
-  localStorage.setItem(KNOWN_KEYS_STORAGE, JSON.stringify(knownKeys))
-}
-
-async function loadServerKeyMap() {
-  const { data, error } = await supabase.rpc('admin_get_key_values')
-  if (error) throw new Error('Não foi possível carregar as keys completas.')
-  const map = {}
-  for (const row of data || []) {
-    if (row?.license_id && row?.license_key) {
-      map[row.license_id] = row.license_key.trim().toUpperCase()
-      rememberKey(row.license_id, row.license_key)
-    }
-  }
-  return map
-}
-
-const $ = (id) => document.getElementById(id)
-const loginView = $('loginView')
-const dashboardView = $('dashboardView')
-const licenseList = $('licenseList')
-const emptyState = $('emptyState')
-const flash = $('flash')
-const patchFlash = $('patchFlash')
-const keysPanel = $('keysPanel')
-const patchesPanel = $('patchesPanel')
-const patchList = $('patchList')
-const patchEmptyState = $('patchEmptyState')
-
-function fmtDate(value) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
-}
-
-function statusLabel(status) {
-  return ({ active: 'Ativa', pending: 'Pendente', expired: 'Expirada', revoked: 'Revogada' })[status] ?? status
-}
-
-function durationText(seconds) {
-  if (!seconds) return '—'
-  const days = Math.floor(seconds / 86400)
-  if (days >= 365) return `${(days / 365).toFixed(days % 365 ? 1 : 0)} ano(s)`
-  if (days >= 1) return `${days} dia(s)`
-  const hours = Math.floor(seconds / 3600)
-  return `${hours} hora(s)`
-}
-
-function validatePatchFile(file) {
-  if (!file) throw new Error('Selecione um arquivo .3105.')
-  if (!file.name.toLowerCase().endsWith('.3105')) throw new Error('O arquivo precisa terminar em .3105.')
-  if (file.size <= 0) throw new Error('O arquivo está vazio.')
-  if (file.size > 50 * 1024 * 1024) throw new Error('O arquivo é maior que 50 MB.')
-}
-
-function safePatchFileName(name) {
-  return String(name || 'patch.3105')
-    .trim()
-    .replace(/[^a-zA-Z0-9._()\- ]+/g, '-')
-    .replace(/\s+/g, ' ') || 'patch.3105'
-}
-
-async function uploadPatchFile(file, patchID) {
-  validatePatchFile(file)
-  const path = `admin-uploads/${patchID}/${Date.now()}-${safePatchFileName(file.name)}`
-  const { error } = await supabase.storage
-    .from('patches-3105')
-    .upload(path, file, { upsert: false, cacheControl: '0', contentType: 'application/octet-stream' })
-  if (error) throw new Error(`Falha no upload: ${error.message}`)
-  return path
-}
-
-async function setPatchMetadata(patchID, values) {
-  const { error } = await supabase
-    .from('patch_catalog')
-    .update(values)
-    .eq('id', patchID)
-  if (error) throw new Error(`Não foi possível salvar o patch: ${error.message}`)
-}
-
-async function replacePatchFile(patch, file) {
-  const newPath = await uploadPatchFile(file, patch.id)
-  const wasEnabled = !!patch.enabled
-  try {
-    if (wasEnabled) await patchApi({ action: 'set_enabled', patch_id: patch.id, enabled: false })
-    await setPatchMetadata(patch.id, { storage_path: newPath })
-    if (wasEnabled) await patchApi({ action: 'set_enabled', patch_id: patch.id, enabled: true })
-    return newPath
-  } catch (e) {
-    try { await supabase.storage.from('patches-3105').remove([newPath]) } catch {}
-    if (wasEnabled) { try { await patchApi({ action: 'set_enabled', patch_id: patch.id, enabled: true }) } catch {} }
-    throw e
-  }
-}
-
-async function session() {
-  const { data } = await supabase.auth.getSession()
-  return data.session
-}
-
-async function callApi(url, body) {
-  const s = await session()
-  if (!s) throw new Error('Sessão expirada. Entre novamente.')
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_PUBLISHABLE_KEY,
-      'Authorization': `Bearer ${s.access_token}`,
-    },
-    body: JSON.stringify(body),
-  })
-
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    const err = new Error(payload.error || `Erro ${response.status}`)
-    err.code = payload.error
-    throw err
-  }
-  return payload
-}
-
-const api = (body) => callApi(API_URL, body)
-const patchApi = (body) => callApi(PATCH_API_URL, body)
-
-function showFlash(message, target = flash) {
-  target.textContent = message
-  target.classList.remove('hidden')
-  clearTimeout(target._flashTimer)
-  target._flashTimer = setTimeout(() => target.classList.add('hidden'), 3000)
-}
-
-function updateSummary(summary = {}) {
-  $('statActive').textContent = summary.active ?? 0
-  $('statPending').textContent = summary.pending ?? 0
-  $('statExpired').textContent = summary.expired ?? 0
-  $('statRevoked').textContent = summary.revoked ?? 0
-}
-
-function updatePatchSummary(summary = {}) {
-  $('patchStatActive').textContent = summary.active ?? 0
-  $('patchStatDisabled').textContent = summary.disabled ?? 0
-  $('patchStatTotal').textContent = summary.total ?? 0
-}
-
-function patchCard(p) {
-  const statusClass = p.enabled ? 'patch-on' : 'patch-off'
-  const statusText = p.enabled ? 'Ativo' : 'Desativado'
-  const buttonClass = p.enabled ? 'danger' : 'success'
-  const buttonText = p.enabled ? 'Desativar' : 'Ativar'
-  return `
-    <article class="patch-card glass" data-patch="${p.id}">
-      <div class="patch-main">
-        <div class="patch-head">
-          <span class="badge ${statusClass}">${statusText}</span>
-          <span class="patch-name">${escapeHtml(p.name || 'Patch')}</span>
-        </div>
-        <div class="patch-description">${escapeHtml(p.description || 'Sem descrição')}</div>
-        <div class="patch-path">${escapeHtml(p.storage_path || 'Sem arquivo')}</div>
-      </div>
-      <div class="patch-action">
-        <button class="mini" data-patch-action="edit" data-id="${p.id}">Editar</button>
-        <button class="mini ${buttonClass}" data-patch-action="toggle" data-id="${p.id}" data-enabled="${String(!p.enabled)}">${buttonText}</button>
-        <button class="mini danger" data-patch-action="remove" data-id="${p.id}">Remover</button>
-      </div>
-    </article>`
-}
-
-function renderPatches() {
-  patchList.innerHTML = allPatches.map(patchCard).join('')
-  patchEmptyState.classList.toggle('hidden', allPatches.length !== 0)
-}
-
-async function loadPatches() {
-  const data = await patchApi({ action: 'list' })
-  allPatches = data.patches ?? []
-  updatePatchSummary(data.summary)
-  renderPatches()
-}
-
-async function showPanel(name) {
-  activePanel = name === 'patches' ? 'patches' : 'keys'
-  const patchesActive = activePanel === 'patches'
-  keysPanel.classList.toggle('hidden', patchesActive)
-  patchesPanel.classList.toggle('hidden', !patchesActive)
-  $('tabKeys').classList.toggle('active', !patchesActive)
-  $('tabPatches').classList.toggle('active', patchesActive)
-  $('pageTitle').textContent = patchesActive ? 'Patches' : 'Licenças'
-  if (patchesActive) await loadPatches()
-  else await loadDashboard()
-}
-
-function licenseCard(l) {
-  const note = l.note?.trim() || 'Sem observação'
-  const fullKey = l.license_key || knownKeys[l.id] || null
-  const revokeButton = l.status === 'revoked'
-    ? `<button class="mini success" data-action="reactivate" data-id="${l.id}">Reativar</button>`
-    : `<button class="mini danger" data-action="revoke" data-id="${l.id}">Desativar</button>`
-
-  return `
-    <article class="license-card glass" data-license="${l.id}">
-      <div class="license-main">
-        <div class="license-head">
-          <span class="badge ${l.status}">${statusLabel(l.status)}</span>
-          <span class="key-hint">${l.key_hint ?? ''}</span>
-        </div>
-        <div class="license-title">${escapeHtml(note)}</div>
-        <div class="stored-key ${fullKey ? '' : 'missing'}">
-          <span>${fullKey ? escapeHtml(fullKey) : 'Key antiga — toque em Copiar e cadastre a key original uma vez'}</span>
-          <button class="copy-key" data-action="copy-key" data-id="${l.id}">Copiar</button>
-        </div>
-        ${fullKey ? '' : '<div class="key-help">As keys antigas eram salvas apenas como hash, então não podem ser reconstruídas. Ao informar a original uma vez, ela passa a ficar disponível no painel.</div>'}
-        <div class="meta">
-          <span>Expira: <b>${fmtDate(l.expires_at)}</b></span>
-          <span>Aparelhos: <b>${l.device_count}/${l.max_devices}</b></span>
-          <span>Duração: <b>${escapeHtml(l.duration_label || durationText(l.duration_seconds))}</b></span>
-          <span>Criada: <b>${fmtDate(l.created_at)}</b></span>
-        </div>
-      </div>
-      <div class="actions">
-        <div class="action-row">
-          ${revokeButton}
-          <button class="mini" data-action="edit" data-id="${l.id}">Editar</button>
-        </div>
-        <div class="action-row">
-          <button class="mini" data-action="add" data-seconds="86400" data-id="${l.id}">+1d</button>
-          <button class="mini" data-action="add" data-seconds="604800" data-id="${l.id}">+7d</button>
-          <button class="mini" data-action="add" data-seconds="2592000" data-id="${l.id}">+30d</button>
-          <button class="mini" data-action="add" data-seconds="31536000" data-id="${l.id}">+1a</button>
-        </div>
-        <button class="mini" data-action="reset" data-id="${l.id}">Resetar aparelhos</button>
-      </div>
-    </article>`
-}
-
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>'"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#039;', '"':'&quot;' }[c]))
-}
-
-function render(list = allLicenses) {
-  licenseList.innerHTML = list.map(licenseCard).join('')
-  emptyState.classList.toggle('hidden', list.length !== 0)
-}
-
-async function loadDashboard() {
-  const data = await api({ action: 'dashboard' })
-  allLicenses = (data.licenses ?? []).map(l => ({
-    ...l,
-    license_key: l.license_key || knownKeys[l.id] || null,
-  }))
-
-  // Migra automaticamente keys que este iPhone já conhecia para o armazenamento
-  // administrativo do servidor, sem pedir novamente.
-  for (const license of allLicenses) {
-    if (license.license_key || !knownKeys[license.id]) continue
-    try {
-      const found = await api({ action: 'search', key: knownKeys[license.id] })
-      if (found?.found && found.license?.id === license.id) {
-        license.license_key = found.license.license_key || knownKeys[license.id]
-      }
-    } catch {}
-  }
-
-  exactLicense = null
-  updateSummary(data.summary)
-  render()
-}
-
-$('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault()
-  $('loginError').textContent = ''
-  $('loginButton').disabled = true
-  $('loginButton').textContent = 'Entrando…'
-  const { error } = await supabase.auth.signInWithPassword({
-    email: $('email').value.trim(),
-    password: $('password').value,
-  })
-  $('loginButton').disabled = false
-  $('loginButton').textContent = 'Entrar'
-  if (error) {
-    $('loginError').textContent = 'E-mail ou senha inválidos.'
-    return
-  }
-  await boot()
-})
-
-$('logoutButton').addEventListener('click', async () => {
-  await supabase.auth.signOut()
-  dashboardView.classList.add('hidden')
-  loginView.classList.remove('hidden')
-})
-
-$('refreshButton').addEventListener('click', async () => {
-  $('refreshButton').textContent = '…'
-  try {
-    if (activePanel === 'patches') await loadPatches()
-    else await loadDashboard()
-  } catch (e) {
-    showFlash(e.message, activePanel === 'patches' ? patchFlash : flash)
-  }
-  $('refreshButton').textContent = '↻'
-})
-
-$('tabKeys').addEventListener('click', async () => {
-  try { await showPanel('keys') } catch (e) { showFlash(e.message) }
-})
-
-$('tabPatches').addEventListener('click', async () => {
-  try { await showPanel('patches') } catch (e) { showFlash(e.message, patchFlash) }
-})
-
-$('enableAllPatches').addEventListener('click', async () => {
-  const button = $('enableAllPatches')
-  button.disabled = true
-  button.textContent = 'Ativando…'
-  try {
-    const data = await patchApi({ action: 'set_all_enabled', enabled: true })
-    showFlash(`${Number(data.count) || 0} patch(es) disponibilizado(s).`, patchFlash)
-    await loadPatches()
-  } catch (e) { showFlash(e.message, patchFlash) }
-  finally { button.disabled = false; button.textContent = 'Ativar todos' }
-})
-
-$('disableAllPatches').addEventListener('click', async () => {
-  if (!confirm('Desativar todos os patches agora? Isso também zera as preferências de ativação salvas no Supabase.')) return
-  const button = $('disableAllPatches')
-  button.disabled = true
-  button.textContent = 'Desativando…'
-  try {
-    const data = await patchApi({ action: 'set_all_enabled', enabled: false })
-    showFlash(`${Number(data.count) || 0} patch(es) desativado(s).`, patchFlash)
-    await loadPatches()
-  } catch (e) { showFlash(e.message, patchFlash) }
-  finally { button.disabled = false; button.textContent = 'Desativar todos' }
-})
-
-$('importPatchButton').addEventListener('click', () => {
-  $('importPatchForm').reset()
-  $('importPatchEnabled').value = 'true'
-  $('importPatchProgress').classList.add('hidden')
-  $('importPatchDialog').showModal()
-})
-
-$('importPatchForm').addEventListener('submit', async (e) => {
-  e.preventDefault()
-  const name = $('importPatchName').value.trim()
-  const description = $('importPatchDescription').value.trim()
-  const file = $('importPatchFile').files?.[0]
-  const enabled = $('importPatchEnabled').value === 'true'
-  const button = $('submitImportPatch')
-  const progress = $('importPatchProgress')
-
-  button.disabled = true
-  progress.textContent = 'Enviando o arquivo para o Supabase…'
-  progress.classList.remove('hidden')
-  let uploadedPath = null
-  try {
-    if (!name) throw new Error('Digite o nome do patch.')
-    validatePatchFile(file)
-    const patchID = crypto.randomUUID()
-    uploadedPath = await uploadPatchFile(file, patchID)
-    progress.textContent = 'Salvando o patch no catálogo…'
-    const { error } = await supabase.from('patch_catalog').insert({
-      id: patchID,
-      name,
-      description,
-      storage_path: uploadedPath,
-      enabled,
-    })
-    if (error) throw new Error(`Não foi possível cadastrar o patch: ${error.message}`)
-    $('importPatchDialog').close()
-    showFlash(`${name} importado com sucesso.`, patchFlash)
-    await loadPatches()
-  } catch (err) {
-    if (uploadedPath) { try { await supabase.storage.from('patches-3105').remove([uploadedPath]) } catch {} }
-    showFlash(err.message, patchFlash)
-  } finally {
-    button.disabled = false
-    progress.classList.add('hidden')
-  }
-})
-
-$('editPatchForm').addEventListener('submit', async (e) => {
-  e.preventDefault()
-  const patchID = $('editPatchId').value
-  const patch = allPatches.find(p => p.id === patchID)
-  if (!patch) return
-  const name = $('editPatchName').value.trim()
-  const description = $('editPatchDescription').value.trim()
-  const file = $('editPatchFile').files?.[0] || null
-  const button = $('savePatchEdit')
-  const progress = $('editPatchProgress')
-
-  button.disabled = true
-  progress.classList.remove('hidden')
-  progress.textContent = file ? 'Enviando a nova versão do arquivo…' : 'Salvando nome e descrição…'
-  try {
-    if (!name) throw new Error('O nome do patch não pode ficar vazio.')
-    if (file) {
-      validatePatchFile(file)
-      const newPath = await replacePatchFile(patch, file)
-      $('editPatchCurrentPath').textContent = newPath
-    }
-    await setPatchMetadata(patchID, { name, description })
-    $('editPatchDialog').close()
-    showFlash(`${name} atualizado.`, patchFlash)
-    await loadPatches()
-  } catch (err) {
-    showFlash(err.message, patchFlash)
-  } finally {
-    button.disabled = false
-    progress.classList.add('hidden')
-  }
-})
-
-patchList.addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-patch-action]')
-  if (!btn) return
-  const id = btn.dataset.id
-  const action = btn.dataset.patchAction
-  const patch = allPatches.find(p => p.id === id)
-  if (!patch) return
-
-  if (action === 'edit') {
-    $('editPatchId').value = patch.id
-    $('editPatchTitle').textContent = patch.name || 'Patch'
-    $('editPatchName').value = patch.name || ''
-    $('editPatchDescription').value = patch.description || ''
-    $('editPatchCurrentPath').textContent = patch.storage_path || '—'
-    $('editPatchFile').value = ''
-    $('editPatchProgress').classList.add('hidden')
-    $('editPatchDialog').showModal()
-    return
-  }
-
-  if (action === 'remove') {
-    const ok = confirm(`Remover permanentemente ${patch.name || 'este patch'} do Supabase? Isso exclui o cadastro, as preferências relacionadas e tenta apagar o arquivo do Storage. Essa ação não pode ser desfeita.`)
-    if (!ok) return
-    btn.disabled = true
-    try {
-      if (patch.enabled) {
-        await patchApi({ action: 'set_enabled', patch_id: id, enabled: false })
-      }
-
-      const { error: deleteError } = await supabase
-        .from('patch_catalog')
-        .delete()
-        .eq('id', id)
-      if (deleteError) throw new Error(`Não foi possível remover o patch: ${deleteError.message}`)
-
-      let storageMessage = ''
-      const storagePath = String(patch.storage_path || '').trim()
-      if (storagePath) {
-        const candidates = storagePath.startsWith('Untitled folder/')
-          ? [storagePath]
-          : [storagePath, `Untitled folder/${storagePath}`]
-        const { error: storageError } = await supabase.storage.from('patches-3105').remove(candidates)
-        if (storageError) storageMessage = ' O cadastro foi removido, mas o arquivo do Storage não pôde ser apagado.'
-      }
-
-      showFlash(`${patch.name || 'Patch'} removido.${storageMessage}`, patchFlash)
-      await loadPatches()
-    } catch (err) {
-      showFlash(err.message, patchFlash)
-    } finally {
-      btn.disabled = false
-    }
-    return
-  }
-
-  if (action !== 'toggle') return
-  const enabled = btn.dataset.enabled === 'true'
-  if (!enabled && !confirm(`Desativar ${patch.name || 'este patch'}?`)) return
-  btn.disabled = true
-  try {
-    await patchApi({ action: 'set_enabled', patch_id: id, enabled })
-    showFlash(`${patch.name || 'Patch'} ${enabled ? 'ativado' : 'desativado'}.`, patchFlash)
-    await loadPatches()
-  } catch (err) { showFlash(err.message, patchFlash) }
-  finally { btn.disabled = false }
-})
-
-$('searchInput').addEventListener('input', () => {
-  const q = $('searchInput').value.trim().toLowerCase()
-  if (!q) { render(allLicenses); return }
-  if (q.startsWith('3105-')) return
-  render(allLicenses.filter(l =>
-    (l.note || '').toLowerCase().includes(q) ||
-    (l.key_hint || '').toLowerCase().includes(q) ||
-    statusLabel(l.status).toLowerCase().includes(q)
-  ))
-})
-
-$('exactSearchButton').addEventListener('click', async () => {
-  const key = $('searchInput').value.trim()
-  if (!key) { showFlash('Cole uma key no campo de busca.'); return }
-  try {
-    const data = await api({ action: 'search', key })
-    if (!data.found) { render([]); showFlash('Key não encontrada.'); return }
-    const normalizedKey = key.trim().toUpperCase()
-    exactLicense = { ...data.license, license_key: data.license.license_key || normalizedKey }
-    rememberKey(data.license.id, normalizedKey)
-    render([exactLicense])
-  } catch (e) { showFlash(e.message) }
-})
-
-$('createButton').addEventListener('click', () => $('createDialog').showModal())
-$('createForm').addEventListener('submit', async (e) => {
-  e.preventDefault()
-  $('submitCreate').disabled = true
-  $('submitCreate').textContent = 'Gerando…'
-  try {
-    const quantity = Math.max(1, Math.min(100, Number($('createQuantity').value) || 1))
-    const payload = {
-      action: 'create',
-      duration: $('createDuration').value,
-      max_devices: Number($('createDevices').value),
-      note: $('createNote').value.trim(),
-    }
-    const created = []
-    const concurrency = 4
-    for (let start = 0; start < quantity; start += concurrency) {
-      const batchSize = Math.min(concurrency, quantity - start)
-      const results = await Promise.all(Array.from({ length: batchSize }, () => api(payload)))
-      for (const data of results) if (data?.created?.license_key) created.push(data.created)
-      $('submitCreate').textContent = `Gerando ${created.length}/${quantity}…`
-    }
-
-    $('createDialog').close()
-    const keys = created.map(item => item.license_key).filter(Boolean)
-    $('createdKey').textContent = keys.join('\n') || '—'
-    $('createdEyebrow').textContent = keys.length > 1 ? 'KEYS CRIADAS' : 'KEY CRIADA'
-    $('createdTitle').textContent = keys.length > 1 ? `${keys.length} keys geradas` : 'Copie agora'
-    $('createdHelp').textContent = keys.length > 1 ? 'As keys completas estão abaixo, uma por linha. Copie todas antes de fechar.' : 'A key completa é mostrada aqui na criação. Guarde-a antes de fechar.'
-    $('copyCreatedKey').textContent = keys.length > 1 ? 'Copiar todas as keys' : 'Copiar key'
-    $('resultDialog').showModal()
-    $('createNote').value = ''
-    $('createQuantity').value = '1'
-    await loadDashboard()
-  } catch (e) { showFlash(e.message) }
-  $('submitCreate').disabled = false
-  $('submitCreate').textContent = 'Gerar key'
-})
-
-document.addEventListener('click', (e) => {
-  const closeButton = e.target.closest('[data-close-dialog]')
-  if (!closeButton) return
-  e.preventDefault()
-  e.stopPropagation()
-  const dialog = closeButton.closest('dialog')
-  if (dialog?.open) dialog.close('cancel')
-})
-
-// No iPhone/Safari, tapping the X inside a form must never submit the form.
-// The close buttons are type=button and are handled explicitly above.
-
-$('copyCreatedKey').addEventListener('click', async () => {
-  const key = $('createdKey').textContent
-  await navigator.clipboard.writeText(key)
-  showFlash(key.includes('\n') ? 'Keys copiadas.' : 'Key copiada.')
-})
-
-$('deleteExpiredButton').addEventListener('click', async () => {
-  const expired = allLicenses.filter(l => l.status === 'expired')
-  if (!expired.length) {
-    showFlash('Não há keys expiradas para excluir.')
-    return
-  }
-
-  const ok = confirm(`Excluir permanentemente ${expired.length} key(s) expirada(s)? Essa ação não pode ser desfeita.`)
-  if (!ok) return
-
-  const button = $('deleteExpiredButton')
-  button.disabled = true
-  button.textContent = 'Excluindo…'
-  try {
-    const data = await api({ action: 'delete_expired' })
-    for (const l of expired) delete knownKeys[l.id]
-    localStorage.setItem(KNOWN_KEYS_STORAGE, JSON.stringify(knownKeys))
-    showFlash(`${Number(data.deleted) || 0} key(s) expirada(s) excluída(s).`)
-    await loadDashboard()
-  } catch (e) {
-    showFlash(e.message)
-  } finally {
-    button.disabled = false
-    button.textContent = 'Excluir expiradas'
-  }
-})
-
-$('expireRevokedButton').addEventListener('click', async () => {
-  const revoked = allLicenses.filter(l => l.status === 'revoked')
-  if (!revoked.length) {
-    showFlash('Não há keys desativadas para expirar.')
-    return
-  }
-
-  const ok = confirm(`Expirar agora ${revoked.length} key(s) desativada(s)? Elas irão para a categoria Expiradas.`)
-  if (!ok) return
-
-  const button = $('expireRevokedButton')
-  button.disabled = true
-  button.textContent = 'Expirando…'
-  try {
-    const data = await api({ action: 'expire_revoked' })
-    showFlash(`${Number(data.expired) || 0} key(s) desativada(s) foram expiradas.`)
-    await loadDashboard()
-  } catch (e) {
-    showFlash(e.message)
-  } finally {
-    button.disabled = false
-    button.textContent = 'Expirar desativadas'
-  }
-})
-
-licenseList.addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-action]')
-  if (!btn) return
-  const id = btn.dataset.id
-  const action = btn.dataset.action
-  const l = exactLicense?.id === id ? exactLicense : allLicenses.find(x => x.id === id)
-
-  try {
-    btn.disabled = true
-    if (action === 'copy-key') {
-      let key = l?.license_key || knownKeys[id]
-      if (!key) {
-        const pasted = prompt('Esta é uma key antiga e o banco só possui o hash. Cole a key original uma vez para cadastrá-la e copiar:')
-        if (!pasted) return
-        const found = await api({ action: 'search', key: pasted })
-        if (!found?.found || found.license?.id !== id) {
-          showFlash('A key informada não corresponde a esta licença.')
-          return
-        }
-        key = found.license.license_key || pasted.trim().toUpperCase()
-        rememberKey(id, key)
-        if (l) l.license_key = key
-      }
-      await navigator.clipboard.writeText(key)
-      showFlash('Key copiada.')
-      render(exactLicense ? [exactLicense] : allLicenses)
-      return
-    } else if (action === 'revoke') {
-      if (!confirm('Desativar esta licença agora?')) return
-      await api({ action: 'revoke', license_id: id })
-      showFlash('Licença desativada.')
-    } else if (action === 'reactivate') {
-      await api({ action: 'reactivate', license_id: id })
-      showFlash('Licença reativada. Se estiver expirada, adicione tempo.')
-    } else if (action === 'add') {
-      await api({ action: 'add_time', license_id: id, seconds: Number(btn.dataset.seconds) })
-      showFlash('Tempo adicionado.')
-    } else if (action === 'reset') {
-      if (!confirm('Resetar todos os aparelhos vinculados a esta licença?')) return
-      await api({ action: 'reset_devices', license_id: id })
-      showFlash('Aparelhos resetados.')
-    } else if (action === 'edit') {
-      $('editLicenseId').value = id
-      $('editTitle').textContent = l?.note || 'Licença'
-      $('editNote').value = l?.note || ''
-      $('editDevices').value = l?.max_devices || 1
-      $('editDialog').showModal()
-      return
-    }
-    await loadDashboard()
-  } catch (err) {
-    showFlash(err.message)
-  } finally {
-    btn.disabled = false
-  }
-})
-
-$('editForm').addEventListener('submit', async (e) => {
-  e.preventDefault()
-  const id = $('editLicenseId').value
-  const note = $('editNote').value.trim()
-  const maxDevices = Number($('editDevices').value)
-  $('saveEdit').disabled = true
-  try {
-    await api({ action: 'set_note', license_id: id, note })
-    await api({ action: 'set_max_devices', license_id: id, max_devices: maxDevices })
-    $('editDialog').close()
-    showFlash('Licença atualizada.')
-    await loadDashboard()
-  } catch (err) { showFlash(err.message) }
-  $('saveEdit').disabled = false
-})
-
-async function boot() {
-  const s = await session()
-  if (!s) {
-    dashboardView.classList.add('hidden')
-    loginView.classList.remove('hidden')
-    return
-  }
-  loginView.classList.add('hidden')
-  dashboardView.classList.remove('hidden')
-  try {
-    activePanel = 'keys'
-    keysPanel.classList.remove('hidden')
-    patchesPanel.classList.add('hidden')
-    $('tabKeys').classList.add('active')
-    $('tabPatches').classList.remove('active')
-    $('pageTitle').textContent = 'Licenças'
-    await loadDashboard()
-  } catch (e) {
-    if (e.code === 'forbidden' || e.code === 'unauthorized') {
-      await supabase.auth.signOut()
-      dashboardView.classList.add('hidden')
-      loginView.classList.remove('hidden')
-      $('loginError').textContent = 'Este usuário não tem acesso ao painel.'
-    } else {
-      showFlash(e.message)
-    }
-  }
-}
-
+const SUPABASE_URL='https://agkjutuvfjcahckhjkra.supabase.co'
+const SUPABASE_KEY='sb_publishable_6oA2tFA2W-yfzK6GpL4Bhw_prNXvyvd'
+const OLD_API=`${SUPABASE_URL}/functions/v1/admin-licenses-api`
+const DASH_API=`${SUPABASE_URL}/functions/v1/admin-dashboard-api`
+const CLIENT_API=`${SUPABASE_URL}/functions/v1/admin-clients-api`
+const PATCH_API=`${SUPABASE_URL}/functions/v1/admin-patches-api`
+const supabase=createClient(SUPABASE_URL,SUPABASE_KEY)
+const $=id=>document.getElementById(id)
+
+let licenses=[],clients=[],patches=[],patchSettings=null,overview=null,activity=[]
+let activePanel='overview',keyFilter='all',renewFilter='today',selected=new Set()
+
+const panelTitles={overview:'Resumo',keys:'Keys',clients:'Clientes',renewals:'Renovações',patches:'Patches',activity:'Atividade'}
+const statusName={active:'Ativa',pending:'Pendente',expired:'Expirada',revoked:'Revogada'}
+const actionNames={create:'Key criada',create_bulk:'Keys criadas',revoke:'Key desativada',reactivate:'Key reativada',add_time:'Tempo adicionado',reset_devices:'Aparelhos resetados',remove_device:'Aparelho removido',client_create:'Cliente criado',client_update:'Cliente atualizado',client_delete:'Cliente removido',renew:'Renovação registrada',renewal_contacted:'Cliente marcado como contatado',update_license_meta:'Key atualizada',patch_create:'Patch importado',patch_update:'Patch atualizado',patch_enable:'Patch ativado',patch_disable:'Patch desativado',patch_enable_all:'Todos patches ativados',patch_disable_all:'Todos patches desativados',patch_duplicate:'Patch duplicado',patch_restore_version:'Versão restaurada',patch_remove:'Patch removido',patch_reorder:'Ordem dos patches alterada',kill_switch_on:'Kill switch ativado',kill_switch_off:'Kill switch desativado',maintenance_on:'Manutenção ativada',maintenance_off:'Manutenção desativada',backup_export:'Backup exportado',settings_update:'Configurações atualizadas'}
+
+function esc(v=''){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function fmtDate(v){if(!v)return'—';try{return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(v))}catch{return'—'}}
+function money(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v)||0)}
+function fileSize(v){const n=Number(v)||0;if(!n)return'—';if(n<1024)return`${n} B`;if(n<1048576)return`${(n/1024).toFixed(1)} KB`;return`${(n/1048576).toFixed(1)} MB`}
+function showFlash(msg){const el=$('globalFlash');el.textContent=msg;el.classList.remove('hidden');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.add('hidden'),3500)}
+function download(name,content,type='application/json'){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function phoneDigits(p=''){let d=String(p).replace(/\D/g,'');if((d.length===10||d.length===11)&&!d.startsWith('55'))d='55'+d;return d}
+function waUrl(client,l){const d=phoneDigits(client?.phone);if(!d)return null;const tpl=overview?.settings?.renewal_message_template||'Olá {nome}, sua licença vence em {data}. Quer renovar por mais 30 dias?';const msg=tpl.replaceAll('{nome}',client?.name||'').replaceAll('{data}',fmtDate(l?.expires_at)).replaceAll('{plano}',l?.plan||l?.duration_label||'').replaceAll('{key}',l?.license_key||l?.key_hint||'');return`https://wa.me/${d}?text=${encodeURIComponent(msg)}`}
+
+async function session(){const {data}=await supabase.auth.getSession();return data.session}
+async function callApi(url,body){const s=await session();if(!s)throw new Error('Sessão expirada. Entre novamente.');const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':`Bearer ${s.access_token}`},body:JSON.stringify(body)});const data=await res.json().catch(()=>({}));if(!res.ok){const e=new Error(data.detail||data.error||`Erro ${res.status}`);e.code=data.error;throw e}return data}
+const oldApi=b=>callApi(OLD_API,b),dashApi=b=>callApi(DASH_API,b),clientApi=b=>callApi(CLIENT_API,b),patchApi=b=>callApi(PATCH_API,b)
+
+function openModal(id){document.querySelectorAll('.modal').forEach(x=>x.classList.add('hidden'));$('modalBackdrop').classList.remove('hidden');$(id).classList.remove('hidden');document.body.style.overflow='hidden'}
+function closeModals(){document.querySelectorAll('.modal').forEach(x=>x.classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.style.overflow=''}
+document.querySelectorAll('.close-modal').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeModals()}))
+$('modalBackdrop').addEventListener('click',closeModals)
+
+async function loadLicenses(){const d=await dashApi({action:'list_licenses'});licenses=d.licenses||[];$('keyActive').textContent=d.summary?.active||0;$('keyPending').textContent=d.summary?.pending||0;$('keyExpired').textContent=d.summary?.expired||0;$('keyRevoked').textContent=d.summary?.revoked||0;renderKeys();renderRenewals()}
+async function loadClients(){const d=await clientApi({action:'list_clients'});clients=d.clients||[];fillClientSelects();renderClients();renderKeys();renderRenewals()}
+async function loadOverview(){overview=await dashApi({action:'overview'});const s=overview.stats||{};$('ovActive').textContent=s.active_keys||0;$('ovToday').textContent=s.expires_today||0;$('ov3d').textContent=s.expires_3d||0;$('ovDevices').textContent=s.active_devices||0;$('ovPatches').textContent=s.active_patches||0;$('ovRevenue').textContent=money(s.month_revenue);$('renewalTemplate').value=overview.settings?.renewal_message_template||'';renderOverviewAlerts()}
+async function loadPatches(){const d=await patchApi({action:'list'});patches=d.patches||[];patchSettings=d.settings||null;$('patchActive').textContent=d.summary?.active||0;$('patchDisabled').textContent=d.summary?.disabled||0;$('patchTotal').textContent=d.summary?.total||0;$('patchUsage').textContent=patches.reduce((s,p)=>s+Number(p.usage_count||0),0);$('maintenanceMessage').value=patchSettings?.maintenance_message||'';updatePatchGlobalButtons();renderPatches()}
+async function loadActivity(){const d=await dashApi({action:'activity'});activity=d.activity||[];renderActivity()}
+async function refreshCore(){await Promise.all([loadLicenses(),loadClients(),loadOverview()])}
+
+function renderOverviewAlerts(){const el=$('overviewAlerts'),rows=overview?.alerts||[];if(!rows.length){el.innerHTML='<div class="muted">Nenhum cliente com vencimento próximo.</div>';return}el.innerHTML=rows.map(l=>`<div class="mini-item"><div><strong>${esc(l.client?.name||'Cliente')}</strong><div class="muted">${esc(l.plan||l.duration_label||'')} • ${fmtDate(l.expires_at)}</div></div><button class="secondary" type="button" data-go="renewals">Ver</button></div>`).join('')}
+
+function keyVisible(l){const now=Date.now(),t=l.expires_at?new Date(l.expires_at).getTime():null;if(keyFilter==='all')return true;if(keyFilter==='today')return l.status==='active'&&t&&t<=now+86400000;if(keyFilter==='3d')return l.status==='active'&&t&&t<=now+3*86400000;return l.status===keyFilter}
+function filteredKeys(){const q=$('keySearch').value.trim().toLowerCase();return licenses.filter(keyVisible).filter(l=>!q||[l.license_key,l.key_hint,l.note,l.plan,l.client?.name,l.client?.phone,statusName[l.status]].some(x=>String(x||'').toLowerCase().includes(q)))}
+function renderKeys(){if(!$('keyList'))return;const rows=filteredKeys();$('keyEmpty').classList.toggle('hidden',rows.length>0);$('keyList').innerHTML=rows.map(l=>{const key=l.license_key||l.key_hint||'Key antiga';const client=l.client?.name||'Sem cliente';return`<article class="license-card glass"><div class="selector"><input class="key-select" type="checkbox" data-id="${l.id}" ${selected.has(l.id)?'checked':''}></div><div><div class="card-head"><div><div class="card-title">${esc(client)}</div><div class="meta"><span class="badge ${l.status}">${statusName[l.status]||l.status}</span><span>${esc(l.plan||l.duration_label||'')}</span><span>${l.device_count||0}/${l.max_devices} aparelhos</span>${l.price_paid!=null?`<span>${money(l.price_paid)}</span>`:''}</div></div><div class="nowrap">${l.expires_at?fmtDate(l.expires_at):'Não ativada'}</div></div><div class="keyline">${esc(key)}</div><div class="meta"><span>${esc(l.note||'Sem observação')}</span>${l.client?.phone?`<span>• ${esc(l.client.phone)}</span>`:''}</div><div class="row-actions spacer"><button class="mini" data-key-action="copy" data-id="${l.id}">Copiar</button><button class="mini" data-key-action="edit" data-id="${l.id}">Editar</button><button class="mini" data-key-action="devices" data-id="${l.id}">Aparelhos</button><button class="mini" data-key-action="add7" data-id="${l.id}">+7d</button><button class="mini" data-key-action="add30" data-id="${l.id}">+30d</button>${l.status==='revoked'?`<button class="mini success" data-key-action="reactivate" data-id="${l.id}">Reativar</button>`:`<button class="mini danger" data-key-action="revoke" data-id="${l.id}">Desativar</button>`}</div></div></article>`}).join('')}
+
+function fillClientSelects(){for(const id of ['createClient','editKeyClient']){const sel=$(id);if(!sel)continue;const old=sel.value;sel.innerHTML='<option value="">Sem cliente</option>'+clients.map(c=>`<option value="${c.id}">${esc(c.name)}${c.phone?' • '+esc(c.phone):''}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old}}
+function renderClients(){const q=$('clientSearch').value.trim().toLowerCase(),rows=clients.filter(c=>!q||[c.name,c.phone,c.email,c.source,(c.tags||[]).join(' ')].some(x=>String(x||'').toLowerCase().includes(q)));$('clientEmpty').classList.toggle('hidden',rows.length>0);$('clientList').innerHTML=rows.map(c=>`<article class="client-card glass"><div class="card-head"><div><div class="card-title">${esc(c.name)}</div><div class="meta"><span>${esc(c.phone||'Sem WhatsApp')}</span><span>${c.key_count||0} key(s)</span><span>${c.active_key_count||0} ativa(s)</span></div></div><strong class="money">${money(c.total_spent)}</strong></div>${c.source?`<div class="muted">Origem: ${esc(c.source)}</div>`:''}<div class="tags">${(c.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div><div class="row-actions">${c.phone?`<button class="mini whatsapp" data-client-action="whatsapp" data-id="${c.id}">WhatsApp</button>`:''}<button class="mini" data-client-action="detail" data-id="${c.id}">Histórico</button><button class="mini" data-client-action="edit" data-id="${c.id}">Editar</button><button class="mini danger" data-client-action="delete" data-id="${c.id}">Remover</button></div></article>`).join('')}
+
+function renewalRows(){const now=Date.now(),day=86400000;let rows=licenses.filter(l=>l.client_id&&l.client&&l.expires_at);if(renewFilter==='today')rows=rows.filter(l=>new Date(l.expires_at).getTime()<=now+day);if(renewFilter==='3d')rows=rows.filter(l=>new Date(l.expires_at).getTime()<=now+3*day);if(renewFilter==='7d')rows=rows.filter(l=>new Date(l.expires_at).getTime()<=now+7*day);if(renewFilter==='not-contacted')rows=rows.filter(l=>new Date(l.expires_at).getTime()<=now+7*day&&!l.renewal_contacted_at);return rows.sort((a,b)=>new Date(a.expires_at)-new Date(b.expires_at))}
+function renderRenewals(){const rows=renewalRows();$('renewalEmpty').classList.toggle('hidden',rows.length>0);$('renewalPotential').textContent=`${money(rows.reduce((s,l)=>s+Number(l.price_paid||0),0))} potencial`;$('renewalList').innerHTML=rows.map(l=>{const url=waUrl(l.client,l),expired=new Date(l.expires_at).getTime()<Date.now();return`<article class="renew-card glass"><div class="card-head"><div><div class="card-title">${esc(l.client?.name||'Cliente')}</div><div class="meta"><span class="badge ${expired?'expired':'active'}">${expired?'Vencida':'Vai vencer'}</span><span>${fmtDate(l.expires_at)}</span><span>${esc(l.plan||l.duration_label||'')}</span>${l.renewal_contacted_at?`<span>Contatado ${fmtDate(l.renewal_contacted_at)}</span>`:''}</div></div><strong>${l.price_paid!=null?money(l.price_paid):'—'}</strong></div><div class="keyline">${esc(l.license_key||l.key_hint||'')}</div><div class="row-actions">${url?`<button class="mini whatsapp" data-renew-action="whatsapp" data-id="${l.id}">WhatsApp</button>`:''}<button class="mini" data-renew-action="contacted" data-id="${l.id}">Marcar contatado</button><button class="mini success" data-renew-action="renew" data-id="${l.id}">Renovar</button></div></article>`}).join('')}
+
+function updatePatchGlobalButtons(){const on=patchSettings?.patches_globally_enabled!==false,maint=patchSettings?.maintenance_mode===true;$('killSwitch').textContent=on?'Ativar kill switch':'Desativar kill switch';$('killSwitch').className=on?'danger':'success';$('maintenanceButton').textContent=maint?'Encerrar manutenção':'Modo manutenção';$('maintenanceButton').className=maint?'success':'secondary'}
+function renderPatches(){$('patchEmpty').classList.toggle('hidden',patches.length>0);$('patchList').innerHTML=patches.map((p,i)=>`<article class="patch-card glass"><div><div class="card-head"><div><div class="card-title">${esc(p.name)}</div><div class="meta"><span class="badge ${p.enabled?'on':'off'}">${p.enabled?'Ativo':'Desativado'}</span><span>${p.usage_count||0} aparelho(s) salvos</span><span>${p.version_count||0} versão(ões)</span><span>${fileSize(p.file_size)}</span></div></div><div class="order-controls"><button class="mini" data-patch-action="up" data-id="${p.id}" ${i===0?'disabled':''}>↑</button><button class="mini" data-patch-action="down" data-id="${p.id}" ${i===patches.length-1?'disabled':''}>↓</button></div></div><div class="muted">${esc(p.description||'Sem descrição')}</div><div class="patch-path">${esc(p.storage_path||'')}</div><div class="meta"><span>Atualizado: ${fmtDate(p.updated_at)}</span></div></div><div class="patch-actions"><button class="mini" data-patch-action="edit" data-id="${p.id}">Editar</button><button class="mini" data-patch-action="versions" data-id="${p.id}">Versões</button><button class="mini" data-patch-action="duplicate" data-id="${p.id}">Duplicar</button><button class="mini ${p.enabled?'danger':'success'}" data-patch-action="toggle" data-id="${p.id}">${p.enabled?'Desativar':'Ativar'}</button><button class="mini danger" data-patch-action="remove" data-id="${p.id}">Remover</button></div></article>`).join('')}
+
+function renderActivity(){$('activityList').innerHTML=activity.length?activity.map(x=>`<article class="timeline-item"><strong>${esc(actionNames[x.action]||x.action)}</strong><div class="meta"><span>${fmtDate(x.created_at)}</span><span>${esc(x.admin_email||'')}</span></div>${x.details&&Object.keys(x.details).length?`<div class="keyline">${esc(JSON.stringify(x.details))}</div>`:''}</article>`).join(''):'<div class="empty">Nenhuma atividade.</div>'}
+
+async function showPanel(name){activePanel=name;document.querySelectorAll('.panel').forEach(p=>p.classList.add('hidden'));$(`${name}Panel`).classList.remove('hidden');document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.panel===name));$('pageTitle').textContent=panelTitles[name]||name;if(name==='patches')await loadPatches();if(name==='activity')await loadActivity();if(name==='clients')await loadClients();if(name==='renewals'){await Promise.all([loadLicenses(),loadClients()]);renderRenewals()}if(name==='overview')await loadOverview();if(name==='keys')await loadLicenses()}
+
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showPanel(t.dataset.panel)))
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)showPanel(g.dataset.go)})
+$('refreshButton').addEventListener('click',async()=>{try{if(activePanel==='patches')await loadPatches();else if(activePanel==='activity')await loadActivity();else await refreshCore();showFlash('Atualizado.')}catch(e){showFlash(e.message)}})
+
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';const {error}=await supabase.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('loginButton').disabled=false;if(error){$('loginError').textContent='E-mail ou senha inválidos.';return}await boot()})
+$('logoutButton').addEventListener('click',async()=>{await supabase.auth.signOut();location.reload()})
+
+$('keySearch').addEventListener('input',renderKeys)
+document.querySelectorAll('[data-key-filter]').forEach(b=>b.addEventListener('click',()=>{keyFilter=b.dataset.keyFilter;document.querySelectorAll('[data-key-filter]').forEach(x=>x.classList.toggle('active',x===b));renderKeys()}))
+$('exactSearchButton').addEventListener('click',async()=>{const key=$('keySearch').value.trim();if(!key)return showFlash('Cole a key completa no campo.');try{const d=await oldApi({action:'search',key});if(!d.found)return showFlash('Key não encontrada.');await loadLicenses();$('keySearch').value=key.trim().toUpperCase();renderKeys();showFlash('Key encontrada e cadastrada para exibição.')}catch(e){showFlash(e.message)}})
+
+$('createKeyButton').addEventListener('click',()=>{fillClientSelects();openModal('createKeyModal')})
+$('createKeyForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('submitCreateKey');btn.disabled=true;btn.textContent='Gerando…';try{const d=await clientApi({action:'create_keys',client_id:$('createClient').value||null,plan:$('createPlan').value.trim(),duration:$('createDuration').value,max_devices:Number($('createDevices').value),quantity:Number($('createQuantity').value),price_paid:$('createPrice').value,note:$('createNote').value.trim()});const keys=(d.created_keys||[]).map(x=>x.license_key);closeModals();$('keysResult').textContent=keys.join('\n');$('keysResultTitle').textContent=`${keys.length} key(s) gerada(s)`;openModal('keysResultModal');$('createKeyForm').reset();$('createDevices').value='1';$('createQuantity').value='1';$('createDuration').value='1m';await refreshCore()}catch(err){showFlash(err.message)}finally{btn.disabled=false;btn.textContent='Gerar key(s)'}})
+$('copyAllCreated').addEventListener('click',async()=>{await navigator.clipboard.writeText($('keysResult').textContent);showFlash('Keys copiadas.')})
+
+$('selectVisible').addEventListener('change',e=>{for(const l of filteredKeys())e.target.checked?selected.add(l.id):selected.delete(l.id);renderKeys()})
+$('keyList').addEventListener('change',e=>{if(e.target.classList.contains('key-select')){e.target.checked?selected.add(e.target.dataset.id):selected.delete(e.target.dataset.id)}})
+$('applyBulk').addEventListener('click',async()=>{const op=$('bulkAction').value,ids=[...selected];if(!op)return showFlash('Escolha uma ação em massa.');if(!ids.length)return showFlash('Selecione pelo menos uma key.');let payload={action:'batch',license_ids:ids,operation:op};if(op==='add7'){payload.operation='add_time';payload.seconds=604800}if(op==='add30'){payload.operation='add_time';payload.seconds=2592000}if(op==='max'){const n=Number(prompt('Novo limite de aparelhos (1-20):','1'));if(!n)return;payload.operation='set_max_devices';payload.max_devices=n}if(op==='delete'&&!confirm(`Excluir permanentemente ${ids.length} key(s)?`))return;try{await dashApi(payload);selected.clear();$('selectVisible').checked=false;await refreshCore();showFlash('Ação aplicada.')}catch(e){showFlash(e.message)}})
+
+function exportRows(ext){const rows=filteredKeys();if(ext==='txt'){download('satanabe-keys.txt',rows.map(l=>[l.license_key||l.key_hint,l.client?.name||'',statusName[l.status],l.plan||'',fmtDate(l.expires_at)].join(' | ')).join('\n'),'text/plain');return}const q=v=>`"${String(v??'').replaceAll('"','""')}"`;const head=['key','cliente','whatsapp','status','plano','vence','valor','nota'];const body=rows.map(l=>[l.license_key||l.key_hint,l.client?.name,l.client?.phone,statusName[l.status],l.plan||l.duration_label,l.expires_at,l.price_paid,l.note].map(q).join(','));download('satanabe-keys.csv','\ufeff'+[head.join(','),...body].join('\n'),'text/csv')}
+$('exportCsv').addEventListener('click',()=>exportRows('csv'));$('exportTxt').addEventListener('click',()=>exportRows('txt'))
+$('expireRevoked').addEventListener('click',async()=>{if(!confirm('Transformar todas as desativadas em expiradas?'))return;try{const d=await oldApi({action:'expire_revoked'});await refreshCore();showFlash(`${d.expired||0} key(s) expiradas.`)}catch(e){showFlash(e.message)}})
+$('deleteExpired').addEventListener('click',async()=>{if(!confirm('Excluir permanentemente todas as keys expiradas?'))return;try{const d=await oldApi({action:'delete_expired'});await refreshCore();showFlash(`${d.deleted||0} key(s) excluídas.`)}catch(e){showFlash(e.message)}})
+
+$('keyList').addEventListener('click',async e=>{const b=e.target.closest('[data-key-action]');if(!b)return;const l=licenses.find(x=>x.id===b.dataset.id);if(!l)return;try{if(b.dataset.keyAction==='copy'){let key=l.license_key;if(!key){const raw=prompt('Esta key antiga ainda só tem o hash. Cole a key original uma vez:');if(!raw)return;const d=await oldApi({action:'search',key:raw});if(!d.found)return showFlash('Key não corresponde.');key=raw.trim().toUpperCase();await loadLicenses()}await navigator.clipboard.writeText(key);return showFlash('Key copiada.')}if(b.dataset.keyAction==='edit'){fillClientSelects();$('editKeyId').value=l.id;$('editKeyTitle').textContent=l.client?.name||l.note||'Licença';$('editKeyClient').value=l.client_id||'';$('editKeyPlan').value=l.plan||'';$('editKeyPrice').value=l.price_paid??'';$('editKeyDevices').value=l.max_devices||1;$('editKeyNote').value=l.note||'';return openModal('editKeyModal')}if(b.dataset.keyAction==='devices'){return openDevices(l)}if(b.dataset.keyAction==='revoke'){if(confirm('Desativar esta key?'))await oldApi({action:'revoke',license_id:l.id})}if(b.dataset.keyAction==='reactivate')await oldApi({action:'reactivate',license_id:l.id});if(b.dataset.keyAction==='add7')await oldApi({action:'add_time',license_id:l.id,seconds:604800});if(b.dataset.keyAction==='add30')await oldApi({action:'add_time',license_id:l.id,seconds:2592000});await refreshCore();showFlash('Key atualizada.')}catch(err){showFlash(err.message)}})
+$('editKeyForm').addEventListener('submit',async e=>{e.preventDefault();try{await clientApi({action:'update_license_meta',license_id:$('editKeyId').value,client_id:$('editKeyClient').value||null,plan:$('editKeyPlan').value,price_paid:$('editKeyPrice').value,max_devices:Number($('editKeyDevices').value),note:$('editKeyNote').value});closeModals();await refreshCore();showFlash('Key atualizada.')}catch(err){showFlash(err.message)}})
+async function openDevices(l){try{const d=await clientApi({action:'list_devices',license_id:l.id});$('deviceList').innerHTML=(d.devices||[]).length?(d.devices||[]).map(x=>`<div class="mini-item"><div><strong>${esc(x.label)}</strong><div class="muted">${esc(x.hash_hint)} • visto ${fmtDate(x.last_seen_at)}</div></div><button class="mini danger" data-device-remove="${x.id}">Remover</button></div>`).join(''):'<div class="muted">Nenhum aparelho vinculado.</div>';openModal('devicesModal')}catch(e){showFlash(e.message)}}
+$('deviceList').addEventListener('click',async e=>{const b=e.target.closest('[data-device-remove]');if(!b||!confirm('Remover apenas este aparelho?'))return;try{await clientApi({action:'remove_device',device_id:b.dataset.deviceRemove});b.closest('.mini-item').remove();await loadLicenses();showFlash('Aparelho removido.')}catch(err){showFlash(err.message)}})
+
+$('clientSearch').addEventListener('input',renderClients);$('newClientButton').addEventListener('click',()=>{$('clientForm').reset();$('clientId').value='';$('clientModalTitle').textContent='Novo cliente';openModal('clientModal')})
+$('clientForm').addEventListener('submit',async e=>{e.preventDefault();const id=$('clientId').value,payload={action:id?'update_client':'create_client',client_id:id||undefined,name:$('clientName').value,phone:$('clientPhone').value,email:$('clientEmail').value,source:$('clientSource').value,tags:$('clientTags').value.split(',').map(x=>x.trim()).filter(Boolean),notes:$('clientNotes').value};try{await clientApi(payload);closeModals();await Promise.all([loadClients(),loadLicenses()]);showFlash('Cliente salvo.')}catch(err){showFlash(err.message)}})
+$('clientList').addEventListener('click',async e=>{const b=e.target.closest('[data-client-action]');if(!b)return;const c=clients.find(x=>x.id===b.dataset.id);if(!c)return;if(b.dataset.clientAction==='whatsapp'){const d=phoneDigits(c.phone);if(d)window.open(`https://wa.me/${d}`,'_blank');return}if(b.dataset.clientAction==='edit'){$('clientId').value=c.id;$('clientName').value=c.name||'';$('clientPhone').value=c.phone||'';$('clientEmail').value=c.email||'';$('clientSource').value=c.source||'';$('clientTags').value=(c.tags||[]).join(', ');$('clientNotes').value=c.notes||'';$('clientModalTitle').textContent=c.name;return openModal('clientModal')}if(b.dataset.clientAction==='delete'){if(!confirm(`Remover ${c.name}? As keys não serão apagadas, apenas ficarão sem cliente.`))return;try{await clientApi({action:'delete_client',client_id:c.id});await Promise.all([loadClients(),loadLicenses()]);showFlash('Cliente removido.')}catch(err){showFlash(err.message)}return}if(b.dataset.clientAction==='detail'){try{const d=await clientApi({action:'client_detail',client_id:c.id});$('clientDetailTitle').textContent=c.name;$('clientDetailBody').innerHTML=`<div class="summary-grid four"><article class="stat"><span>Keys</span><strong>${d.licenses?.length||0}</strong></article><article class="stat"><span>Compras</span><strong>${d.transactions?.length||0}</strong></article></div><h3>Keys</h3><div class="mini-list">${(d.licenses||[]).map(x=>`<div class="mini-item"><div><strong>${esc(x.plan||x.duration_label||'Licença')}</strong><div class="muted">${statusName[x.status]} • ${fmtDate(x.expires_at)}</div></div><span>${x.price_paid!=null?money(x.price_paid):''}</span></div>`).join('')||'<div class="muted">Nenhuma.</div>'}</div><h3 style="margin-top:16px">Vendas e renovações</h3><div class="mini-list">${(d.transactions||[]).map(x=>`<div class="mini-item"><div><strong>${x.kind==='renewal'?'Renovação':'Venda'}</strong><div class="muted">${fmtDate(x.created_at)}</div></div><span>${money(x.amount)}</span></div>`).join('')||'<div class="muted">Nenhuma.</div>'}</div>`;openModal('clientDetailModal')}catch(err){showFlash(err.message)}}})
+
+for(const b of document.querySelectorAll('[data-renew-filter]'))b.addEventListener('click',()=>{renewFilter=b.dataset.renewFilter;document.querySelectorAll('[data-renew-filter]').forEach(x=>x.classList.toggle('active',x===b));renderRenewals()})
+$('renewalList').addEventListener('click',async e=>{const b=e.target.closest('[data-renew-action]');if(!b)return;const l=licenses.find(x=>x.id===b.dataset.id);if(!l)return;if(b.dataset.renewAction==='whatsapp'){const u=waUrl(l.client,l);if(u)window.open(u,'_blank');return}if(b.dataset.renewAction==='contacted'){try{await clientApi({action:'mark_contacted',license_id:l.id});await loadLicenses();showFlash('Marcado como contatado.')}catch(err){showFlash(err.message)}return}if(b.dataset.renewAction==='renew'){$('renewLicenseId').value=l.id;$('renewTitle').textContent=l.client?.name||'Licença';$('renewAmount').value=l.price_paid??'';$('renewNote').value='';openModal('renewModal')}})
+$('renewForm').addEventListener('submit',async e=>{e.preventDefault();try{await clientApi({action:'renew',license_id:$('renewLicenseId').value,seconds:Number($('renewSeconds').value),amount:$('renewAmount').value,note:$('renewNote').value});closeModals();await refreshCore();showFlash('Renovação registrada.')}catch(err){showFlash(err.message)}})
+
+$('backupButton').addEventListener('click',async()=>{try{const d=await dashApi({action:'backup'});download(`satanabe-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(d,null,2));showFlash('Backup criado.')}catch(e){showFlash(e.message)}})
+$('saveTemplate').addEventListener('click',async()=>{try{await dashApi({action:'update_settings',renewal_message_template:$('renewalTemplate').value});await loadOverview();showFlash('Mensagem salva.')}catch(e){showFlash(e.message)}})
+
+function validatePatchFile(file){if(!file)throw new Error('Selecione um .3105.');if(!file.name.toLowerCase().endsWith('.3105'))throw new Error('O arquivo deve terminar em .3105.');if(!file.size||file.size>50*1024*1024)throw new Error('Arquivo vazio ou maior que 50 MB.')}
+function safeName(n){return String(n||'patch.3105').replace(/[^a-zA-Z0-9._()\- ]+/g,'-').replace(/\s+/g,' ')}
+async function uploadPatch(file,folder='new'){validatePatchFile(file);const path=`admin-uploads/${folder}/${Date.now()}-${safeName(file.name)}`;const {error}=await supabase.storage.from('patches-3105').upload(path,file,{upsert:false,cacheControl:'0',contentType:'application/octet-stream'});if(error)throw new Error(`Upload falhou: ${error.message}`);return path}
+$('importPatchButton').addEventListener('click',()=>{$('importPatchForm').reset();openModal('importPatchModal')})
+$('importPatchForm').addEventListener('submit',async e=>{e.preventDefault();const file=$('importPatchFile').files[0],pr=$('importProgress');pr.classList.remove('hidden');let path=null;try{path=await uploadPatch(file,crypto.randomUUID());await patchApi({action:'create_patch',name:$('importPatchName').value,description:$('importPatchDescription').value,storage_path:path,original_filename:file.name,file_size:file.size,enabled:$('importPatchEnabled').value==='true'});closeModals();await Promise.all([loadPatches(),loadOverview()]);showFlash('Patch importado.')}catch(err){if(path)try{await supabase.storage.from('patches-3105').remove([path])}catch{}showFlash(err.message)}finally{pr.classList.add('hidden')}})
+$('editPatchForm').addEventListener('submit',async e=>{e.preventDefault();const id=$('editPatchId').value,file=$('editPatchFile').files[0],pr=$('editPatchProgress');pr.classList.remove('hidden');let path=null;try{const payload={action:'update_patch',patch_id:id,name:$('editPatchName').value,description:$('editPatchDescription').value,version_note:$('editPatchVersionNote').value};if(file){path=await uploadPatch(file,id);payload.storage_path=path;payload.original_filename=file.name;payload.file_size=file.size}await patchApi(payload);closeModals();await loadPatches();showFlash('Patch atualizado.')}catch(err){if(path)try{await supabase.storage.from('patches-3105').remove([path])}catch{}showFlash(err.message)}finally{pr.classList.add('hidden')}})
+$('patchList').addEventListener('click',async e=>{const b=e.target.closest('[data-patch-action]');if(!b)return;const i=patches.findIndex(x=>x.id===b.dataset.id),p=patches[i];if(!p)return;try{const ac=b.dataset.patchAction;if(ac==='edit'){$('editPatchId').value=p.id;$('editPatchTitle').textContent=p.name;$('editPatchName').value=p.name;$('editPatchDescription').value=p.description||'';$('editPatchFile').value='';$('editPatchVersionNote').value='';return openModal('editPatchModal')}if(ac==='toggle'){await patchApi({action:'set_enabled',patch_id:p.id,enabled:!p.enabled})}else if(ac==='duplicate'){await patchApi({action:'duplicate',patch_id:p.id})}else if(ac==='versions'){const d=await patchApi({action:'list_versions',patch_id:p.id});$('versionsTitle').textContent=p.name;$('versionList').innerHTML=(d.versions||[]).map(v=>`<div class="mini-item"><div><strong>Versão ${v.version_number}</strong><div class="muted">${fmtDate(v.created_at)} • ${fileSize(v.file_size)} • ${esc(v.note||'')}</div><div class="patch-path">${esc(v.original_filename||v.storage_path)}</div></div><button class="mini" data-restore-version="${v.id}" data-patch="${p.id}">Restaurar</button></div>`).join('');return openModal('versionsModal')}else if(ac==='remove'){const txt=prompt(`Para remover ${p.name} do catálogo e do Storage, digite REMOVER:`);if(txt!=='REMOVER')return;await patchApi({action:'remove',patch_id:p.id,confirmation:'REMOVER'})}else if(ac==='up'||ac==='down'){const j=ac==='up'?i-1:i+1;if(j<0||j>=patches.length)return;const copy=[...patches];[copy[i],copy[j]]=[copy[j],copy[i]];await patchApi({action:'reorder',ordered_ids:copy.map(x=>x.id)})}await Promise.all([loadPatches(),loadOverview()]);showFlash('Patches atualizados.')}catch(err){showFlash(err.message)}})
+$('versionList').addEventListener('click',async e=>{const b=e.target.closest('[data-restore-version]');if(!b||!confirm('Restaurar esta versão? Os estados salvos desse patch serão desligados.'))return;try{await patchApi({action:'restore_version',patch_id:b.dataset.patch,version_id:b.dataset.restoreVersion});closeModals();await loadPatches();showFlash('Versão restaurada.')}catch(err){showFlash(err.message)}})
+$('enableAll').addEventListener('click',async()=>{try{await patchApi({action:'set_all_enabled',enabled:true});await loadPatches();showFlash('Todos os patches ativados.')}catch(e){showFlash(e.message)}})
+$('disableAll').addEventListener('click',async()=>{if(!confirm('Desativar todos os patches?'))return;try{await patchApi({action:'set_all_enabled',enabled:false});await loadPatches();showFlash('Todos os patches desativados.')}catch(e){showFlash(e.message)}})
+$('killSwitch').addEventListener('click',async()=>{const on=patchSettings?.patches_globally_enabled!==false;if(on&&!confirm('ATIVAR o kill switch? Novos downloads serão bloqueados e os estados salvos serão desligados.'))return;try{await patchApi({action:'set_global_enabled',enabled:!on});await loadPatches();showFlash(on?'Kill switch ativado.':'Kill switch desativado.')}catch(e){showFlash(e.message)}})
+$('maintenanceButton').addEventListener('click',async()=>{const on=patchSettings?.maintenance_mode===true;if(!on&&!confirm('Entrar em modo manutenção e bloquear o uso dos patches?'))return;try{await patchApi({action:'set_maintenance',enabled:!on,message:$('maintenanceMessage').value});await loadPatches();showFlash(!on?'Manutenção ativada.':'Manutenção encerrada.')}catch(e){showFlash(e.message)}})
+$('refreshActivity').addEventListener('click',loadActivity)
+
+async function boot(){const s=await session();if(!s){$('loginView').classList.remove('hidden');$('appView').classList.add('hidden');return}$('loginView').classList.add('hidden');$('appView').classList.remove('hidden');try{await refreshCore();await showPanel('overview')}catch(e){if(e.code==='forbidden'||e.code==='unauthorized'){await supabase.auth.signOut();$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');$('loginError').textContent='Este usuário não tem acesso.'}else showFlash(e.message)}}
 boot()

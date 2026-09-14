@@ -1,27 +1,21 @@
-# Satanabe Admin v5
+# Satanabe Admin v9
 
-Painel web privado para administrar keys e patches pelo iPhone.
+Painel administrativo para o sistema de licenças e patches.
 
-## Patches
+## Novidades da v9
 
-- Ativar/desativar todos.
-- Ativar/desativar individualmente.
-- Importar um novo arquivo `.3105` diretamente para o Storage privado do Supabase.
-- Editar o nome e a descrição exibidos no aplicativo.
-- Substituir o arquivo `.3105` de um patch já cadastrado.
-- Ao substituir um arquivo, o estado salvo daquele patch é zerado antes de voltar a ficar disponível.
+- Dashboard com keys ativas, vencimentos, aparelhos, patches e receita do mês.
+- Clientes com nome, WhatsApp, e-mail, origem, tags, observações e histórico.
+- Criação de até 100 keys de uma vez com cliente, plano e valor vinculados.
+- Fila de renovações com WhatsApp, marcar como contatado e renovar por 1d, 7d, 30d ou 1 ano.
+- Gerenciamento individual de aparelhos por key.
+- Filtros e ações em massa para keys.
+- Exportação de keys em CSV/TXT e backup administrativo em JSON.
+- Patches com importar, editar, ativar/desativar, duplicar, ordenar, remover, histórico e rollback de versões.
+- Kill switch global e modo manutenção.
+- Log administrativo.
+- Modais customizados sem `<dialog>` para evitar o bug de fechar/submit no Safari do iPhone.
 
-O painel não interpreta o conteúdo dos arquivos `.3105`; ele apenas envia e referencia os arquivos no Storage.
+## Publicação
 
-Para publicar, substitua `index.html`, `styles.css`, `app.js` e `README.md` no repositório usado pelo GitHub Pages.
-
-
-## v6
-- Botão **Remover** em cada patch: remove o registro do catálogo, preferências relacionadas e tenta apagar o arquivo correspondente do Storage.
-- Campo **Quantidade de keys** em Criar key (1 a 100 por vez).
-- Resultado de criação em lote mostra todas as keys, uma por linha, com botão para copiar todas.
-
-
-## v7
-- Corrige os botões X/Fechar de todos os modais no Safari/iPhone.
-- Fechar a janela de Criar key não dispara mais a geração de uma key.
+Substitua `index.html`, `app.js`, `styles.css` e `README.md` na raiz do repositório GitHub Pages e faça commit na branch `main`.
