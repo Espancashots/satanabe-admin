@@ -6,6 +6,7 @@ const OLD_API=`${SUPABASE_URL}/functions/v1/admin-licenses-api`
 const DASH_API=`${SUPABASE_URL}/functions/v1/admin-dashboard-api`
 const CLIENT_API=`${SUPABASE_URL}/functions/v1/admin-clients-api`
 const PATCH_API=`${SUPABASE_URL}/functions/v1/admin-patches-api`
+const RESELLER_API=`${SUPABASE_URL}/functions/v1/admin-resellers-api`
 const PIX_COPY_PASTE='00020101021126580014br.gov.bcb.pix01360c0f1a70-bf41-4479-a66d-c6a527cf76fe5204000053039865802BR5917JOAO P M BAPTISTA6013CACHOEIRAS DE62070503***6304F699'
 
 const PLAN_CATALOG={
@@ -22,9 +23,10 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_KEY)
 const $=id=>document.getElementById(id)
 
 let licenses=[],clients=[],patches=[],patchSettings=null,patchSummary={active:0,disabled:0,total:0},overview=null,activity=[]
+let resellers=[],resellerSummary={total:0,active:0,disabled:0,month_revenue:0,active_keys:0,clients:0},resellerDetail=null,resellerSubTab='overview'
 let activePanel='overview',keyFilter='all',renewFilter='today',selected=new Set(),currentDeviceLicenseId=null
 
-const panelTitles={overview:'Overview',keys:'Keys',clients:'Clientes',renewals:'Renovações',patches:'Patches',activity:'Logs'}
+const panelTitles={overview:'Overview',keys:'Keys',clients:'Clientes',resellers:'Revendedores',renewals:'Renovações',patches:'Patches',activity:'Logs'}
 const statusName={active:'Ativa',pending:'Pendente',expired:'Expirada',revoked:'Revogada'}
 const actionNames={
   create:'Key criada',create_bulk:'Keys criadas',revoke:'Key desativada',reactivate:'Key reativada',add_time:'Tempo adicionado',reset_devices:'Aparelhos resetados',remove_device:'Aparelho removido',
@@ -32,7 +34,8 @@ const actionNames={
   patch_create:'Patch importado',patch_update:'Patch atualizado',patch_enable:'Patch ativado',patch_disable:'Patch desativado',patch_enable_all:'Todos patches ativados',patch_disable_all:'Todos patches desativados',
   patch_duplicate:'Patch duplicado',patch_restore_version:'Versão restaurada',patch_remove:'Patch removido',patch_reorder:'Ordem dos patches alterada',kill_switch_on:'Kill switch ativado',kill_switch_off:'Kill switch desativado',
   maintenance_on:'Manutenção ativada',maintenance_off:'Manutenção desativada',backup_export:'Backup exportado',settings_update:'Configurações atualizadas',register_full_key:'Key completa registrada',
-  delete_expired:'Keys expiradas excluídas',expire_revoked:'Keys revogadas expiradas',set_max_devices:'Limite de aparelhos alterado'
+  delete_expired:'Keys expiradas excluídas',expire_revoked:'Keys revogadas expiradas',set_max_devices:'Limite de aparelhos alterado',
+  reseller_create:'Revendedor criado',reseller_update:'Revendedor atualizado',reseller_enable:'Revendedor ativado',reseller_disable:'Revendedor desativado',reseller_license_enable:'Key de revendedor ativada',reseller_license_disable:'Key de revendedor desativada'
 }
 
 function esc(v=''){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
@@ -56,7 +59,7 @@ async function copyText(text,label='Copiado.'){try{await navigator.clipboard.wri
 
 async function session(){const {data}=await supabase.auth.getSession();return data.session}
 async function callApi(url,body){const s=await session();if(!s)throw new Error('Sessão expirada. Entre novamente.');const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':`Bearer ${s.access_token}`},body:JSON.stringify(body)});const data=await res.json().catch(()=>({}));if(!res.ok){const e=new Error(data.detail||data.error||`Erro ${res.status}`);e.code=data.error;throw e}return data}
-const oldApi=b=>callApi(OLD_API,b),dashApi=b=>callApi(DASH_API,b),clientApi=b=>callApi(CLIENT_API,b),patchApi=b=>callApi(PATCH_API,b)
+const oldApi=b=>callApi(OLD_API,b),dashApi=b=>callApi(DASH_API,b),clientApi=b=>callApi(CLIENT_API,b),patchApi=b=>callApi(PATCH_API,b),resellerApi=b=>callApi(RESELLER_API,b)
 
 function openModal(id){document.querySelectorAll('.modal').forEach(x=>x.classList.add('hidden'));$('modalBackdrop').classList.remove('hidden');$(id).classList.remove('hidden');document.body.style.overflow='hidden'}
 function closeModals(){document.querySelectorAll('.modal').forEach(x=>x.classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.style.overflow=''}
@@ -70,6 +73,62 @@ async function loadOverview(){overview=await dashApi({action:'overview'});update
 async function loadPatchSummary(){const d=await patchApi({action:'list'});patchSummary=d.summary||{};patches=d.patches||patches;patchSettings=d.settings||patchSettings;updateOverviewStats();return d}
 async function loadPatches(){const d=await patchApi({action:'list'});patches=d.patches||[];patchSettings=d.settings||null;patchSummary=d.summary||{};$('patchActive').textContent=d.summary?.active||0;$('patchDisabled').textContent=d.summary?.disabled||0;$('patchTotal').textContent=d.summary?.total||0;$('patchUsage').textContent=patches.reduce((s,p)=>s+Number(p.usage_count||0),0);$('maintenanceMessage').value=patchSettings?.maintenance_message||'';updatePatchGlobalButtons();renderPatches();updateOverviewStats();return d}
 async function loadActivity(){const d=await dashApi({action:'activity'});activity=d.activity||[];renderActivity();return d}
+async function loadResellers(){
+  const d=await resellerApi({action:'list_resellers'});resellers=d.resellers||[];resellerSummary=d.summary||resellerSummary;renderResellerSummary();renderResellers();return d
+}
+function renderResellerSummary(){
+  if(!$('resellerTotal'))return
+  $('resellerTotal').textContent=resellerSummary.total||0
+  $('resellerActive').textContent=resellerSummary.active||0
+  $('resellerActiveKeys').textContent=resellerSummary.active_keys||0
+  $('resellerClients').textContent=resellerSummary.clients||0
+  $('resellerRevenue').textContent=money(resellerSummary.month_revenue||0)
+}
+function resellerSlug(v=''){return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)}
+function renderResellers(){
+  if(!$('resellerList'))return
+  const q=normalizeSearchText($('resellerSearch')?.value||'')
+  const rows=resellers.filter(r=>!q||[r.store_name,r.owner_name,r.email,r.whatsapp,r.phone,r.slug].some(v=>normalizeSearchText(v||'').includes(q)))
+  $('resellerEmpty').classList.toggle('hidden',rows.length>0)
+  $('resellerList').innerHTML=rows.map(r=>`<article class="client-card glass reseller-card"><div class="card-head"><div><div class="card-title">${esc(r.store_name)}</div><div class="meta"><span class="badge ${r.enabled?'active':'revoked'}">${r.enabled?'Ativo':'Desativado'}</span><span>${esc(r.owner_name||'Sem responsável')}</span></div></div><strong class="money">${money(r.month_revenue||0)}</strong></div><div class="client-phone">${esc(r.whatsapp||r.phone||r.email||'Sem contato cadastrado')}</div><div class="reseller-metrics"><span><strong>${r.active_key_count||0}</strong> keys ativas</span><span><strong>${r.client_count||0}</strong> clientes</span><span><strong>${r.key_count||0}</strong> keys totais</span></div><div class="row-actions"><button class="mini primary" data-reseller-action="open" data-id="${r.id}">Abrir painel</button><button class="mini" data-reseller-action="edit" data-id="${r.id}">Editar</button><button class="mini ${r.enabled?'danger':'success'}" data-reseller-action="status" data-id="${r.id}">${r.enabled?'Desativar':'Ativar'}</button></div></article>`).join('')
+}
+function fillResellerForm(r=null){
+  $('resellerForm').reset();if(!r)delete $('resellerSlug').dataset.touched;$('resellerId').value=r?.id||'';$('resellerModalTitle').textContent=r?'Editar revendedor':'Criar revendedor';$('saveResellerButton').textContent=r?'Salvar alterações':'Criar revendedor'
+  $('resellerStoreName').value=r?.store_name||'';$('resellerOwnerName').value=r?.owner_name||'';$('resellerEmail').value=r?.email||'';$('resellerWhatsapp').value=r?.whatsapp||r?.phone||'';$('resellerSlug').value=r?.slug||'';$('resellerPix').value=r?.pix_copy_paste||'';$('resellerNotes').value=r?.notes||''
+  $('resellerPermOverview').checked=r?.permissions?.overview!==false;$('resellerPermKeys').checked=r?.permissions?.keys!==false;$('resellerPermClients').checked=r?.permissions?.clients!==false
+}
+async function loadResellerDetail(id){
+  resellerDetail=await resellerApi({action:'reseller_detail',reseller_id:id});renderResellerDetail();return resellerDetail
+}
+function renderResellerDetail(){
+  if(!resellerDetail)return
+  const r=resellerDetail.reseller,s=resellerDetail.summary||{}
+  $('resellerDetailName').textContent=r.store_name||'Revendedor'
+  $('resellerDetailMeta').innerHTML=`<span class="badge ${r.enabled?'active':'revoked'}">${r.enabled?'Ativo':'Desativado'}</span><span>${esc(r.owner_name||'Sem responsável')}</span>${r.whatsapp?`<span>${esc(r.whatsapp)}</span>`:''}`
+  $('toggleResellerButton').textContent=r.enabled?'Desativar revendedor':'Ativar revendedor';$('toggleResellerButton').className=r.enabled?'danger':'success'
+  $('rdActiveKeys').textContent=s.active_keys||0;$('rdPendingKeys').textContent=s.pending_keys||0;$('rdExpiredKeys').textContent=s.expired_keys||0;$('rdClients').textContent=s.clients||0;$('rdDevices').textContent=s.devices||0;$('rdRevenue').textContent=money(s.month_revenue||0)
+  $('rdStoreName').textContent=r.store_name||'—';$('rdStoreSlug').textContent=`Futuro endereço: /loja/${r.slug||'—'}`;$('rdOwnerName').textContent=r.owner_name||'—';$('rdOwnerContact').textContent=[r.whatsapp||r.phone,r.email].filter(Boolean).join(' • ')||'Sem contato';$('rdTotalRevenue').textContent=money(s.total_revenue||0)
+  const perms=r.permissions||{};$('rdPermissions').innerHTML=[['Overview',perms.overview!==false],['Keys',perms.keys!==false],['Clientes',perms.clients!==false]].map(([n,on])=>`<span class="permission-pill ${on?'on':'off'}">${on?'✓':'×'} ${n}</span>`).join('')
+  renderResellerKeys();renderResellerClients();switchResellerSubtab(resellerSubTab)
+}
+function switchResellerSubtab(name){
+  resellerSubTab=name;document.querySelectorAll('[data-reseller-subtab]').forEach(b=>b.classList.toggle('active',b.dataset.resellerSubtab===name));['overview','keys','clients'].forEach(x=>$(`reseller${x[0].toUpperCase()+x.slice(1)}Sub`).classList.toggle('hidden',x!==name))
+}
+function renderResellerKeys(){
+  if(!resellerDetail||!$('resellerKeyList'))return
+  const q=normalizeSearchText($('resellerKeySearch')?.value||'')
+  const rows=(resellerDetail.licenses||[]).filter(l=>{const c=l.client||{};return!q||[l.license_key,l.key_hint,l.plan,l.duration_label,c.name,c.phone].some(v=>normalizeSearchText(v||'').includes(q))})
+  $('resellerKeyEmpty').classList.toggle('hidden',rows.length>0)
+  $('resellerKeyList').innerHTML=rows.map(l=>{const c=l.client||{},key=l.license_key||l.key_hint||'Key';return`<article class="key-card glass"><div class="key-main"><div class="key-check-spacer"></div><div class="key-content"><div class="card-head"><div><div class="card-title">${esc(c.name||l.plan||l.duration_label||'Key')}</div><div class="meta"><span class="badge ${l.status}">${statusName[l.status]||l.status}</span><span>${esc(l.plan||l.duration_label||'')}</span><span>${l.device_count||0}/${l.max_devices} aparelhos</span></div></div><div class="nowrap">${l.expires_at?fmtDate(l.expires_at):'Não ativada'}</div></div><div class="keyline">${esc(key)}</div><div class="meta"><span>${esc(c.phone||'Sem telefone')}</span></div><div class="row-actions spacer"><button class="mini ${l.status==='revoked'?'success':'danger'}" data-reseller-key-action="toggle" data-id="${l.id}">${l.status==='revoked'?'Ativar':'Desativar'}</button><button class="mini" data-reseller-key-action="copy" data-id="${l.id}">Copiar key</button></div></div></div></article>`}).join('')
+}
+function renderResellerClients(){
+  if(!resellerDetail||!$('resellerClientList'))return
+  const q=normalizeSearchText($('resellerClientSearch')?.value||'')
+  const licenses=resellerDetail.licenses||[]
+  const rows=(resellerDetail.clients||[]).filter(c=>!q||[c.name,c.phone,c.email].some(v=>normalizeSearchText(v||'').includes(q)))
+  $('resellerClientEmpty').classList.toggle('hidden',rows.length>0)
+  $('resellerClientList').innerHTML=rows.map(c=>{const own=licenses.filter(l=>l.client_id===c.id),active=own.filter(l=>l.status==='active').length;return`<article class="client-card glass"><div class="card-head"><div><div class="card-title">${esc(c.name)}</div><div class="meta"><span>${own.length} key(s)</span><span>${active} ativa(s)</span></div></div></div><div class="client-phone">${esc(c.phone||c.email||'Sem contato')}</div><div class="row-actions">${c.phone?`<button class="mini whatsapp" data-reseller-client-action="whatsapp" data-phone="${esc(c.phone)}">WhatsApp</button>`:''}</div></article>`}).join('')
+}
 async function refreshCore(){await Promise.all([loadLicenses(),loadClients(),loadPatchSummary(),loadOverview()]);updateOverviewStats();renderOverviewAlerts();renderNotifications()}
 
 function updateOverviewStats(){
@@ -168,15 +227,29 @@ function renderActivity(){$('activityList').innerHTML=activity.length?activity.m
 async function showPanel(name){
   activePanel=name;document.querySelectorAll('.panel').forEach(p=>p.classList.add('hidden'));$(`${name}Panel`).classList.remove('hidden');document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.panel===name));$('pageTitle').textContent=panelTitles[name]||name
   $('notificationPanel').classList.add('hidden')
-  if(name==='patches')await loadPatches();if(name==='activity')await loadActivity();if(name==='clients')await loadClients();if(name==='renewals'){await Promise.all([loadLicenses(),loadClients()]);renderRenewals()}if(name==='overview')await Promise.all([loadOverview(),loadPatchSummary()]);if(name==='keys')await loadLicenses()
+  if(name==='patches')await loadPatches();if(name==='activity')await loadActivity();if(name==='clients')await loadClients();if(name==='resellers')await loadResellers();if(name==='renewals'){await Promise.all([loadLicenses(),loadClients()]);renderRenewals()}if(name==='overview')await Promise.all([loadOverview(),loadPatchSummary()]);if(name==='keys')await loadLicenses()
 }
 
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showPanel(t.dataset.panel)))
 document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)showPanel(g.dataset.go)})
-$('refreshButton').addEventListener('click',async()=>{try{if(activePanel==='patches')await loadPatches();else if(activePanel==='activity')await loadActivity();else await refreshCore();showFlash('Atualizado.')}catch(e){showFlash(e.message)}})
+$('refreshButton').addEventListener('click',async()=>{try{if(activePanel==='patches')await loadPatches();else if(activePanel==='activity')await loadActivity();else if(activePanel==='resellers'){const id=resellerDetail?.reseller?.id;await loadResellers();if(id)await loadResellerDetail(id)}else await refreshCore();showFlash('Atualizado.')}catch(e){showFlash(e.message)}})
 $('notificationButton').addEventListener('click',e=>{e.stopPropagation();$('notificationPanel').classList.toggle('hidden')})
 $('notificationClose').addEventListener('click',()=> $('notificationPanel').classList.add('hidden'))
 document.addEventListener('click',e=>{if(!$('notificationPanel').classList.contains('hidden')&&!e.target.closest('.notification-wrap'))$('notificationPanel').classList.add('hidden')})
+
+$('resellerSearch').addEventListener('input',renderResellers)
+$('newResellerButton').addEventListener('click',()=>{fillResellerForm();openModal('resellerModal')})
+$('resellerStoreName').addEventListener('input',()=>{if(!$('resellerId').value&&!$('resellerSlug').dataset.touched)$('resellerSlug').value=resellerSlug($('resellerStoreName').value)})
+$('resellerSlug').addEventListener('input',()=>{$('resellerSlug').dataset.touched='1'})
+$('resellerForm').addEventListener('submit',async e=>{e.preventDefault();const id=$('resellerId').value,btn=$('saveResellerButton');btn.disabled=true;try{const payload={action:id?'update_reseller':'create_reseller',store_name:$('resellerStoreName').value,owner_name:$('resellerOwnerName').value,email:$('resellerEmail').value,whatsapp:$('resellerWhatsapp').value,phone:$('resellerWhatsapp').value,slug:$('resellerSlug').value||resellerSlug($('resellerStoreName').value),pix_copy_paste:$('resellerPix').value,notes:$('resellerNotes').value,permissions:{overview:$('resellerPermOverview').checked,keys:$('resellerPermKeys').checked,clients:$('resellerPermClients').checked}};if(id)payload.reseller_id=id;const d=await resellerApi(payload);closeModals();await loadResellers();if(id&&resellerDetail?.reseller?.id===id)await loadResellerDetail(id);else if(!id&&d.reseller?.id){$('resellerListView').classList.add('hidden');$('resellerDetailView').classList.remove('hidden');await loadResellerDetail(d.reseller.id)}showFlash(id?'Revendedor atualizado.':'Revendedor criado.')}catch(err){showFlash(err.message)}finally{btn.disabled=false;btn.textContent=id?'Salvar alterações':'Criar revendedor'}})
+$('resellerList').addEventListener('click',async e=>{const b=e.target.closest('[data-reseller-action]');if(!b)return;const r=resellers.find(x=>x.id===b.dataset.id);if(!r)return;try{if(b.dataset.resellerAction==='open'){$('resellerListView').classList.add('hidden');$('resellerDetailView').classList.remove('hidden');resellerSubTab='overview';await loadResellerDetail(r.id);return}if(b.dataset.resellerAction==='edit'){fillResellerForm(r);openModal('resellerModal');return}if(b.dataset.resellerAction==='status'){if(r.enabled&&!confirm(`Desativar o revendedor ${r.store_name}?`))return;await resellerApi({action:'set_reseller_status',reseller_id:r.id,enabled:!r.enabled});await loadResellers();showFlash(r.enabled?'Revendedor desativado.':'Revendedor ativado.')}}catch(err){showFlash(err.message)}})
+$('backToResellers').addEventListener('click',()=>{$('resellerDetailView').classList.add('hidden');$('resellerListView').classList.remove('hidden');resellerDetail=null;renderResellers()})
+$('editResellerButton').addEventListener('click',()=>{if(resellerDetail?.reseller){fillResellerForm(resellerDetail.reseller);openModal('resellerModal')}})
+$('toggleResellerButton').addEventListener('click',async()=>{const r=resellerDetail?.reseller;if(!r)return;if(r.enabled&&!confirm(`Desativar o revendedor ${r.store_name}?`))return;try{await resellerApi({action:'set_reseller_status',reseller_id:r.id,enabled:!r.enabled});await Promise.all([loadResellers(),loadResellerDetail(r.id)]);showFlash(r.enabled?'Revendedor desativado.':'Revendedor ativado.')}catch(err){showFlash(err.message)}})
+document.querySelectorAll('[data-reseller-subtab]').forEach(b=>b.addEventListener('click',()=>switchResellerSubtab(b.dataset.resellerSubtab)))
+$('resellerKeySearch').addEventListener('input',renderResellerKeys);$('resellerClientSearch').addEventListener('input',renderResellerClients)
+$('resellerKeyList').addEventListener('click',async e=>{const b=e.target.closest('[data-reseller-key-action]');if(!b||!resellerDetail)return;const l=(resellerDetail.licenses||[]).find(x=>x.id===b.dataset.id);if(!l)return;try{if(b.dataset.resellerKeyAction==='copy'){if(l.license_key)await copyText(l.license_key,'Key copiada.');else showFlash('A key completa não está registrada ainda.');return}if(b.dataset.resellerKeyAction==='toggle'){const enable=l.status==='revoked';await resellerApi({action:'set_license_status',reseller_id:resellerDetail.reseller.id,license_id:l.id,enabled:enable});await Promise.all([loadResellers(),loadResellerDetail(resellerDetail.reseller.id)]);showFlash(enable?'Key ativada.':'Key desativada.')}}catch(err){showFlash(err.message)}})
+$('resellerClientList').addEventListener('click',e=>{const b=e.target.closest('[data-reseller-client-action]');if(!b)return;if(b.dataset.resellerClientAction==='whatsapp'){const d=phoneDigits(b.dataset.phone||'');if(d)window.open(`https://wa.me/${d}`,'_blank')}})
 
 $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';const {error}=await supabase.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('loginButton').disabled=false;if(error){$('loginError').textContent='E-mail ou senha inválidos.';return}await boot()})
 $('logoutButton').addEventListener('click',async()=>{await supabase.auth.signOut();location.reload()})

@@ -66,3 +66,17 @@ Primeira entrega grande do novo Satanabe Admin, construída sobre a versão-base
 - Melhorado: um único cliente encontrado é selecionado automaticamente; vários resultados exigem escolha explícita.
 - Melhorado: botão `Buscar` separado (`type=button`) e mensagem de quantidade de resultados.
 - Melhorado: ao abrir `Criar key`, o painel tenta recarregar os clientes se a lista local estiver vazia.
+## v1.1.0 Alpha — 2026-09-16
+- Adicionada nova aba **Revendedores** no Satanabe Admin.
+- Cadastro de revendedor com nome da loja, responsável, e-mail, WhatsApp, PIX, slug futuro da Store e permissões.
+- Resumo global de revendedores: total, ativos, keys ativas, clientes e receita do mês.
+- Acesso interno ao painel de cada revendedor com subabas **Overview / Keys / Clientes**.
+- Overview individual mostra keys, clientes, aparelhos e receita registrada do revendedor.
+- Admin pode ativar/desativar o revendedor sem revogar automaticamente as keys dos clientes.
+- Admin pode ativar/desativar individualmente keys pertencentes ao revendedor.
+- Estrutura multi-loja preparada no Supabase com `reseller_id` em keys, clientes e transações. Registros antigos permanecem como vendas diretas do Admin.
+- Nova Edge Function administrativa `admin-resellers-api`, protegida pelo login e allowlist existentes.
+- Receita geral do Overview continua somando todas as transações e agora possui separação interna entre receita direta e de revendedores para uso futuro.
+- Backup administrativo passa a incluir a tabela de revendedores.
+- A Store/painel público do revendedor ainda não é criado nesta versão; esta entrega prepara e administra a conta-base de cada revendedor.
+

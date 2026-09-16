@@ -1,10 +1,10 @@
-# Satanabe Admin v1.0.1 Alpha
+# Satanabe Admin v1.1 Alpha
 
-Painel administrativo responsivo para gerenciamento de keys, clientes, cobranças/renovações, patches e logs.
+Painel administrativo responsivo para gerenciamento de keys, clientes, cobranças/renovações, revendedores, patches e logs.
 
 ## Publicar no GitHub Pages
 
-Envie **todo o conteúdo desta pasta/ZIP para a raiz do repositório** do Satanabe Admin, substituindo os arquivos antigos quando o GitHub perguntar.
+Envie **todo o conteúdo deste ZIP para a raiz do repositório** do Satanabe Admin, substituindo os arquivos antigos.
 
 Arquivos principais:
 - `index.html`
@@ -14,13 +14,25 @@ Arquivos principais:
 - `CHANGELOG.md`
 - `README.md`
 
-A publicação continua estática e compatível com GitHub Pages. O painel usa as Edge Functions e o Supabase já configurados no `app.js`.
+A publicação continua estática e compatível com GitHub Pages. O backend Supabase do projeto já possui a estrutura e a Edge Function necessárias para a área de revendedores.
 
-## Versão
+## Revendedores
 
-`1.0.0-alpha`
+A aba **Revendedores** permite:
+- criar a conta-base de um revendedor;
+- definir nome da loja, responsável, e-mail, WhatsApp e PIX;
+- preparar o identificador/slug que será usado futuramente pela Store;
+- permitir ou remover acesso futuro às abas Overview, Keys e Clientes;
+- visualizar receita, keys e clientes separados por revendedor;
+- entrar no painel interno de cada revendedor pelo Admin;
+- ativar/desativar o revendedor;
+- ativar/desativar as keys pertencentes a ele.
 
-A versão aparece no cabeçalho do próprio painel e também no arquivo `VERSION`.
+Nesta versão, **não é criado ainda o site/Store nem o login do revendedor**. Essa será a próxima etapa.
+
+## Isolamento dos dados
+
+Keys, clientes e transações agora podem receber um `reseller_id`. Os registros que já existiam continuam sem `reseller_id` e permanecem classificados como vendas diretas do Admin.
 
 ## Preços configurados
 
@@ -34,9 +46,10 @@ A versão aparece no cabeçalho do próprio painel e também no arquivo `VERSION
 | 7 dias | R$ 40 |
 | 1 mês | R$ 70 |
 
-## Observações
+## Segurança
 
-- O status que o backend chama de `revoked` aparece na interface como revogada/desativada; é o mesmo estado já usado pelo Supabase atual.
-- A criação de keys aceita os planos 3h, 10h, 1d, 3d, 7d e 1m que a API atual já suporta.
-- A renovação usa os períodos atualmente aceitos pela API de clientes: 1 dia, 7 dias e 1 mês.
-- Patches e Logs continuam usando as APIs já existentes no projeto.
+A área de revendedores usa uma Edge Function protegida por sessão do Supabase Auth e pela mesma allowlist administrativa do restante do painel. A tabela de revendedores possui RLS ativado e não é lida diretamente pelo navegador.
+
+## Versão
+
+`1.1.0-alpha`

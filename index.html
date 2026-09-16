@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#09090b" />
-  <title>Satanabe Admin v1.0.1 Alpha</title>
-  <link rel="stylesheet" href="styles.css?v=1.0.0-alpha" />
+  <title>Satanabe Admin v1.1 Alpha</title>
+  <link rel="stylesheet" href="styles.css?v=1.1.0-alpha" />
 </head>
 <body>
   <main class="shell">
@@ -25,7 +25,7 @@
     <section id="appView" class="hidden">
       <header class="topbar">
         <div>
-          <div class="eyebrow">SATANABE ADMIN • V1.0.1 ALPHA</div>
+          <div class="eyebrow">SATANABE ADMIN • V1.1 ALPHA</div>
           <h2 id="pageTitle">Overview</h2>
         </div>
         <div class="top-actions">
@@ -51,6 +51,7 @@
         <button class="tab active" data-panel="overview">Overview</button>
         <button class="tab" data-panel="keys">Keys</button>
         <button class="tab" data-panel="clients">Clientes</button>
+        <button class="tab" data-panel="resellers">Revendedores</button>
         <button class="tab" data-panel="renewals">Renovações</button>
         <button class="tab" data-panel="patches">Patches</button>
         <button class="tab" data-panel="activity">Logs</button>
@@ -154,6 +155,71 @@
         <div id="clientEmpty" class="empty hidden">Nenhum cliente cadastrado ainda.</div>
       </section>
 
+      <section id="resellersPanel" class="panel hidden">
+        <div class="summary-grid five reseller-summary">
+          <article class="stat glass"><span>Revendedores</span><strong id="resellerTotal">0</strong></article>
+          <article class="stat glass"><span>Ativos</span><strong id="resellerActive">0</strong></article>
+          <article class="stat glass"><span>Keys ativas</span><strong id="resellerActiveKeys">0</strong></article>
+          <article class="stat glass"><span>Clientes</span><strong id="resellerClients">0</strong></article>
+          <article class="stat glass revenue"><span>Receita do mês</span><strong id="resellerRevenue">R$ 0</strong></article>
+        </div>
+
+        <div id="resellerListView">
+          <section class="glass toolbar client-toolbar">
+            <div class="search"><span>⌕</span><input id="resellerSearch" type="text" placeholder="Buscar loja, responsável, e-mail ou WhatsApp" /></div>
+            <button id="newResellerButton" class="primary" type="button">+ Criar revendedor</button>
+          </section>
+          <section id="resellerList" class="client-grid reseller-grid"></section>
+          <div id="resellerEmpty" class="empty hidden">Nenhum revendedor cadastrado ainda.</div>
+        </div>
+
+        <div id="resellerDetailView" class="hidden">
+          <section class="glass reseller-detail-head">
+            <div class="reseller-detail-title">
+              <button id="backToResellers" class="ghost compact" type="button">← Voltar</button>
+              <div><div class="eyebrow">PAINEL DO REVENDEDOR</div><h3 id="resellerDetailName">Loja</h3><div id="resellerDetailMeta" class="meta"></div></div>
+            </div>
+            <div class="row-actions"><button id="editResellerButton" class="secondary" type="button">Editar</button><button id="toggleResellerButton" class="danger" type="button">Desativar revendedor</button></div>
+          </section>
+
+          <div class="summary-grid six reseller-detail-summary">
+            <article class="stat glass"><span>Keys ativas</span><strong id="rdActiveKeys">0</strong></article>
+            <article class="stat glass"><span>Pendentes</span><strong id="rdPendingKeys">0</strong></article>
+            <article class="stat glass"><span>Expiradas</span><strong id="rdExpiredKeys">0</strong></article>
+            <article class="stat glass"><span>Clientes</span><strong id="rdClients">0</strong></article>
+            <article class="stat glass"><span>Aparelhos</span><strong id="rdDevices">0</strong></article>
+            <article class="stat glass revenue"><span>Receita do mês</span><strong id="rdRevenue">R$ 0</strong></article>
+          </div>
+
+          <section class="filter-row reseller-subtabs">
+            <button class="filter active" data-reseller-subtab="overview">Overview</button>
+            <button class="filter" data-reseller-subtab="keys">Keys</button>
+            <button class="filter" data-reseller-subtab="clients">Clientes</button>
+          </section>
+
+          <section id="resellerOverviewSub" class="reseller-subpanel">
+            <div class="overview-lower-grid">
+              <section class="glass section-card compact-card"><div class="eyebrow">LOJA</div><h3 id="rdStoreName">—</h3><p id="rdStoreSlug" class="muted">—</p></section>
+              <section class="glass section-card compact-card"><div class="eyebrow">CONTATO</div><h3 id="rdOwnerName">—</h3><p id="rdOwnerContact" class="muted">—</p></section>
+              <section class="glass section-card compact-card"><div class="eyebrow">RECEITA</div><h3 id="rdTotalRevenue">R$ 0</h3><p class="muted">Receita histórica registrada para este revendedor.</p></section>
+            </div>
+            <section class="glass section-card"><div class="section-head"><div><div class="eyebrow">PERMISSÕES DO FUTURO PAINEL</div><h3>Acesso do revendedor</h3></div></div><div id="rdPermissions" class="permission-pills"></div></section>
+          </section>
+
+          <section id="resellerKeysSub" class="reseller-subpanel hidden">
+            <section class="glass toolbar keys-toolbar"><div class="search"><span>⌕</span><input id="resellerKeySearch" type="text" placeholder="Buscar key, cliente ou telefone" /></div></section>
+            <section id="resellerKeyList" class="card-list"></section>
+            <div id="resellerKeyEmpty" class="empty hidden">Esse revendedor ainda não possui keys.</div>
+          </section>
+
+          <section id="resellerClientsSub" class="reseller-subpanel hidden">
+            <section class="glass toolbar client-toolbar"><div class="search"><span>⌕</span><input id="resellerClientSearch" type="text" placeholder="Buscar cliente por nome ou telefone" /></div></section>
+            <section id="resellerClientList" class="client-grid"></section>
+            <div id="resellerClientEmpty" class="empty hidden">Esse revendedor ainda não possui clientes.</div>
+          </section>
+        </div>
+      </section>
+
       <section id="renewalsPanel" class="panel hidden">
         <section class="glass section-card">
           <div class="section-head">
@@ -236,12 +302,26 @@
 
   <div id="renewModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">RENOVAR</div><h3 id="renewTitle">Licença</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="renewForm" class="form-grid"><input id="renewLicenseId" type="hidden" /><label class="full"><span>Plano de renovação</span><select id="renewSeconds"><option value="86400" data-price="14">1 dia • R$ 14</option><option value="604800" data-price="40">7 dias • R$ 40</option><option value="2592000" data-price="70" selected>1 mês • R$ 70</option></select></label><label><span>Valor recebido (R$)</span><input id="renewAmount" type="number" min="0" step="0.01" value="70" /></label><div class="copy-payment"><span>PIX para cobrar</span><button id="renewCopyPix" class="secondary" type="button">Copiar PIX</button></div><label class="full"><span>Observação</span><input id="renewNote" placeholder="Opcional" /></label><button class="primary wide full" type="submit">Confirmar renovação</button></form></div></div>
 
+  <div id="resellerModal" class="modal hidden"><div class="modal-card glass large"><div class="modal-head"><div><div class="eyebrow">REVENDEDOR</div><h3 id="resellerModalTitle">Criar revendedor</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+    <form id="resellerForm" class="form-grid"><input id="resellerId" type="hidden" />
+      <label><span>Nome da loja</span><input id="resellerStoreName" required maxlength="120" placeholder="Ex.: Alpha Store" /></label>
+      <label><span>Responsável</span><input id="resellerOwnerName" maxlength="120" placeholder="Nome do revendedor" /></label>
+      <label><span>E-mail</span><input id="resellerEmail" type="email" maxlength="180" placeholder="Usaremos no login do painel depois" /></label>
+      <label><span>WhatsApp</span><input id="resellerWhatsapp" inputmode="tel" maxlength="40" placeholder="21999999999" /></label>
+      <label class="full"><span>Identificador da loja</span><input id="resellerSlug" maxlength="80" placeholder="alpha-store" /><small class="field-hint">Será usado futuramente no endereço da Store. Deixe vazio para gerar pelo nome.</small></label>
+      <label class="full"><span>PIX copia e cola do revendedor</span><textarea id="resellerPix" rows="4" maxlength="1500" placeholder="O dinheiro da Store dele irá para este PIX quando integrarmos a loja."></textarea></label>
+      <fieldset class="full permission-box"><legend>Abas permitidas no futuro painel</legend><label class="checkline"><input id="resellerPermOverview" type="checkbox" checked /> Overview</label><label class="checkline"><input id="resellerPermKeys" type="checkbox" checked /> Keys</label><label class="checkline"><input id="resellerPermClients" type="checkbox" checked /> Clientes</label></fieldset>
+      <label class="full"><span>Observação interna</span><input id="resellerNotes" maxlength="500" placeholder="Opcional" /></label>
+      <button id="saveResellerButton" class="primary wide full" type="submit">Criar revendedor</button>
+    </form>
+  </div></div>
+
   <div id="importPatchModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">NOVO PATCH</div><h3>Importar .3105</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="importPatchForm" class="form-grid"><label><span>Nome no app</span><input id="importPatchName" required /></label><label><span>Status</span><select id="importPatchEnabled"><option value="true">Ativo</option><option value="false">Desativado</option></select></label><label class="full"><span>Descrição</span><input id="importPatchDescription" /></label><label class="full"><span>Arquivo .3105</span><input id="importPatchFile" type="file" accept=".3105,application/octet-stream" required /></label><div id="importProgress" class="progress full hidden">Enviando…</div><button class="primary wide full" type="submit">Importar patch</button></form></div></div>
 
   <div id="editPatchModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">EDITAR PATCH</div><h3 id="editPatchTitle">Patch</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="editPatchForm" class="form-grid"><input id="editPatchId" type="hidden" /><label><span>Nome no app</span><input id="editPatchName" required /></label><label class="full"><span>Descrição</span><input id="editPatchDescription" /></label><label class="full"><span>Substituir arquivo (opcional)</span><input id="editPatchFile" type="file" accept=".3105,application/octet-stream" /></label><label class="full"><span>Nota da versão</span><input id="editPatchVersionNote" placeholder="Ex.: ajuste de setembro" /></label><div id="editPatchProgress" class="progress full hidden">Salvando…</div><button class="primary wide full" type="submit">Salvar alterações</button></form></div></div>
 
   <div id="versionsModal" class="modal hidden"><div class="modal-card glass large"><div class="modal-head"><div><div class="eyebrow">HISTÓRICO</div><h3 id="versionsTitle">Versões do patch</h3></div><button class="icon-button close-modal" type="button">×</button></div><div id="versionList" class="mini-list"></div></div></div>
 
-  <script type="module" src="app.js?v=1.0.0-alpha"></script>
+  <script type="module" src="app.js?v=1.1.0-alpha"></script>
 </body>
 </html>

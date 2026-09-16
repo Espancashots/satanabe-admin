@@ -106,3 +106,17 @@ label{display:grid;gap:5px}label span,.copy-payment span{font-size:11px;color:#c
 .search-with-action .mini{flex:0 0 auto;margin:0;height:32px;padding:0 12px}
 .field-hint{display:block;margin-top:6px;color:var(--muted);font-size:12px;line-height:1.35}
 @media (max-width:560px){.search-with-action{flex-wrap:wrap}.search-with-action input{flex:1 1 160px}.search-with-action .mini{height:34px}}
+
+/* v1.1 alpha — reseller administration */
+.summary-grid.five{grid-template-columns:repeat(5,minmax(0,1fr))}.summary-grid.six{grid-template-columns:repeat(6,minmax(0,1fr))}
+.reseller-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.reseller-card{position:relative;overflow:hidden}.reseller-card:before{content:"";position:absolute;inset:0 auto 0 0;width:2px;background:linear-gradient(var(--accent),transparent 82%)}
+.reseller-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.reseller-metrics span{display:grid;gap:2px;padding:8px;border:1px solid var(--line-soft);background:rgba(255,255,255,.018);border-radius:10px;color:var(--muted);font-size:10px}.reseller-metrics strong{color:var(--text);font-size:15px}
+.reseller-detail-head{display:flex;justify-content:space-between;align-items:center;gap:14px;border-radius:var(--radius-xl);padding:14px;margin-bottom:12px}.reseller-detail-title{display:flex;align-items:center;gap:12px;min-width:0}.reseller-detail-title h3{font-size:22px;margin-bottom:2px}.reseller-subtabs{margin:0 0 12px}.reseller-subpanel{animation:panelIn .16s ease}
+.permission-pills{display:flex;gap:7px;flex-wrap:wrap}.permission-pill{border-radius:999px;padding:7px 10px;border:1px solid var(--line);font-size:11px;font-weight:850;background:var(--surface-2);color:var(--muted)}.permission-pill.on{color:#78e5a5;background:var(--green-bg);border-color:rgba(85,214,138,.2)}.permission-pill.off{color:#ff929c;background:var(--danger-bg);border-color:rgba(255,101,115,.2)}
+.permission-box{border:1px solid var(--line);border-radius:13px;padding:12px;background:var(--surface-2);display:flex;gap:16px;align-items:center;flex-wrap:wrap}.permission-box legend{padding:0 5px;color:#c9c9cf;font-size:11px;font-weight:850}.permission-box .checkline{margin:0}
+#resellerPix{min-height:104px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.4}
+.key-check-spacer{width:18px}
+@media (max-width:1250px){.summary-grid.five,.summary-grid.six{grid-template-columns:repeat(3,minmax(0,1fr))}.reseller-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.summary-grid.five,.summary-grid.six{grid-template-columns:repeat(2,minmax(0,1fr))}.reseller-grid{grid-template-columns:1fr}.reseller-detail-head{align-items:flex-start;flex-direction:column}.reseller-detail-title{align-items:flex-start;flex-direction:column}.reseller-detail-head>.row-actions{width:100%}.reseller-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:390px){.summary-grid.five,.summary-grid.six{grid-template-columns:repeat(2,minmax(0,1fr))}.reseller-metrics{grid-template-columns:1fr}.permission-box{display:grid;grid-template-columns:1fr 1fr}}
