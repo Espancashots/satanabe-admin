@@ -1,33 +1,42 @@
-# Satanabe Admin — v0.2 Alpha
+# Satanabe Admin v1.0 Alpha
 
-Segunda versão da nova linha de versionamento do painel administrativo. A **v0.1 Alpha** é a baseline original enviada pelo usuário; a **v0.2 Alpha** faz a primeira atualização visual sem reescrever as APIs existentes.
+Painel administrativo responsivo para gerenciamento de keys, clientes, cobranças/renovações, patches e logs.
 
-## O que mudou na v0.2 Alpha
-- Nova identidade **preto + vermelho**, com vermelho usado apenas em ações e destaques.
-- Fundo preto profundo, cards em grafite e bordas mais discretas.
-- Botões menores e mais proporcionais no desktop.
-- Botões mobile continuam com área de toque confortável, mas ocupam menos espaço visual.
-- Abas, filtros, cards e botões receberam estados de hover/press mais suaves.
-- Inputs e foco agora usam a identidade vermelha.
-- Patches e Logs mantêm a lógica funcional da baseline.
-- Título, cache-busting e identificação interna atualizados para `v0.2 Alpha`.
+## Publicar no GitHub Pages
 
-## Arquivos para publicar no GitHub Pages
-Substitua/adicone na raiz do repositório:
+Envie **todo o conteúdo desta pasta/ZIP para a raiz do repositório** do Satanabe Admin, substituindo os arquivos antigos quando o GitHub perguntar.
+
+Arquivos principais:
 - `index.html`
 - `app.js`
 - `styles.css`
-- `README.md`
-- `CHANGELOG.md`
 - `VERSION`
+- `CHANGELOG.md`
+- `README.md`
 
-Depois que o deploy do GitHub Pages concluir, abra o site normalmente. Se o navegador insistir em mostrar o CSS antigo, recarregue a página; `index.html` já referencia `styles.css?v=0.2-alpha` e `app.js?v=0.2-alpha`.
+A publicação continua estática e compatível com GitHub Pages. O painel usa as Edge Functions e o Supabase já configurados no `app.js`.
 
-## Próximas versões planejadas
-- **v0.3 Alpha:** painel de clientes simplificado e fluxo cliente → key.
-- **v0.4 Alpha:** criação de keys com planos/preços integrados, busca e ações em massa refinadas.
-- **v0.5 Alpha:** overview completo e métricas de vencimento/receita.
-- **v0.6 Alpha:** notificações administrativas de renovação/cobrança.
-- **v0.7 Beta:** testes, responsividade e correções gerais.
-- **v0.9 RC:** candidata a versão estável.
-- **v1.0:** primeira versão estável.
+## Versão
+
+`1.0.0-alpha`
+
+A versão aparece no cabeçalho do próprio painel e também no arquivo `VERSION`.
+
+## Preços configurados
+
+| Plano | Valor |
+|---|---:|
+| 3 horas — teste | R$ 0 |
+| 3 horas | R$ 4 |
+| 10 horas | R$ 8 |
+| 1 dia | R$ 14 |
+| 3 dias | R$ 30 |
+| 7 dias | R$ 40 |
+| 1 mês | R$ 70 |
+
+## Observações
+
+- O status que o backend chama de `revoked` aparece na interface como revogada/desativada; é o mesmo estado já usado pelo Supabase atual.
+- A criação de keys aceita os planos 3h, 10h, 1d, 3d, 7d e 1m que a API atual já suporta.
+- A renovação usa os períodos atualmente aceitos pela API de clientes: 1 dia, 7 dias e 1 mês.
+- Patches e Logs continuam usando as APIs já existentes no projeto.

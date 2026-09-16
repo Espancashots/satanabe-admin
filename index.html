@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0b0d" />
-  <title>Satanabe Admin v0.2 Alpha</title>
-  <link rel="stylesheet" href="styles.css?v=0.2-alpha" />
+  <meta name="theme-color" content="#09090b" />
+  <title>Satanabe Admin v1.0 Alpha</title>
+  <link rel="stylesheet" href="styles.css?v=1.0.0-alpha" />
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div class="brand-mark">S</div>
       <div class="eyebrow">PAINEL PRIVADO</div>
       <h1>Satanabe Admin</h1>
-      <p class="muted center">Keys, clientes, renovações e patches em um só lugar.</p>
+      <p class="muted center">Keys, clientes, renovações, patches e acompanhamento em um só lugar.</p>
       <form id="loginForm" class="glass login-card">
         <label><span>E-mail</span><input id="email" type="email" autocomplete="username" value="Jirobagamer@gmail.com" required /></label>
         <label><span>Senha</span><input id="password" type="password" autocomplete="current-password" required /></label>
@@ -24,46 +24,78 @@
 
     <section id="appView" class="hidden">
       <header class="topbar">
-        <div><div class="eyebrow">SATANABE ADMIN • V0.2 ALPHA</div><h2 id="pageTitle">Resumo</h2></div>
-        <div class="top-actions"><button id="refreshButton" class="icon-button" type="button">↻</button><button id="logoutButton" class="ghost" type="button">Sair</button></div>
+        <div>
+          <div class="eyebrow">SATANABE ADMIN • V1.0 ALPHA</div>
+          <h2 id="pageTitle">Overview</h2>
+        </div>
+        <div class="top-actions">
+          <div class="notification-wrap">
+            <button id="notificationButton" class="icon-button notification-button" type="button" aria-label="Notificações">
+              <span aria-hidden="true">🔔</span><span id="notificationCount" class="notification-count hidden">0</span>
+            </button>
+            <section id="notificationPanel" class="notification-panel glass hidden" aria-label="Central de notificações">
+              <div class="notification-head">
+                <div><div class="eyebrow">LEMBRETES</div><h3>Expirações</h3></div>
+                <button id="notificationClose" class="icon-button small-icon" type="button">×</button>
+              </div>
+              <div id="notificationList" class="mini-list"></div>
+              <button class="secondary wide" type="button" data-go="renewals">Abrir fila completa</button>
+            </section>
+          </div>
+          <button id="refreshButton" class="icon-button" type="button" aria-label="Atualizar">↻</button>
+          <button id="logoutButton" class="ghost" type="button">Sair</button>
+        </div>
       </header>
 
       <nav class="tabs glass">
-        <button class="tab active" data-panel="overview">Resumo</button>
+        <button class="tab active" data-panel="overview">Overview</button>
         <button class="tab" data-panel="keys">Keys</button>
         <button class="tab" data-panel="clients">Clientes</button>
         <button class="tab" data-panel="renewals">Renovações</button>
         <button class="tab" data-panel="patches">Patches</button>
-        <button class="tab" data-panel="activity">Atividade</button>
+        <button class="tab" data-panel="activity">Logs</button>
       </nav>
 
       <div id="globalFlash" class="flash hidden"></div>
 
       <section id="overviewPanel" class="panel">
-        <div class="summary-grid six">
+        <div class="summary-grid seven">
           <article class="stat glass"><span>Keys ativas</span><strong id="ovActive">0</strong></article>
-          <article class="stat glass"><span>Vencem hoje</span><strong id="ovToday">0</strong></article>
-          <article class="stat glass"><span>Vencem em 3d</span><strong id="ov3d">0</strong></article>
-          <article class="stat glass"><span>Aparelhos</span><strong id="ovDevices">0</strong></article>
-          <article class="stat glass"><span>Patches ativos</span><strong id="ovPatches">0</strong></article>
-          <article class="stat glass"><span>Receita do mês</span><strong id="ovRevenue">R$ 0</strong></article>
+          <article class="stat glass warn"><span>Vencem hoje</span><strong id="ovToday">0</strong></article>
+          <article class="stat glass"><span>Vencem amanhã</span><strong id="ovTomorrow">0</strong></article>
+          <article class="stat glass"><span>Vencem em 3 dias</span><strong id="ov3d">0</strong></article>
+          <article class="stat glass"><span>Aparelhos conectados</span><strong id="ovDevices">0</strong></article>
+          <article class="stat glass"><span>Patches ativos</span><strong id="ovPatches">0/0</strong></article>
+          <article class="stat glass revenue"><span>Receita do mês</span><strong id="ovRevenue">R$ 0</strong></article>
         </div>
+
         <section class="glass section-card">
-          <div class="section-head"><div><div class="eyebrow">RENOVAÇÕES</div><h3>Clientes para contatar</h3></div><button class="secondary" type="button" data-go="renewals">Abrir fila</button></div>
+          <div class="section-head">
+            <div><div class="eyebrow">RENOVAÇÕES</div><h3>Clientes para cobrar</h3><p class="muted">Prioridade automática para keys vencidas ou próximas do vencimento.</p></div>
+            <button class="secondary" type="button" data-go="renewals">Abrir fila</button>
+          </div>
           <div id="overviewAlerts" class="mini-list"></div>
         </section>
-        <section class="glass section-card two-col">
-          <div>
-            <div class="eyebrow">BACKUP</div><h3>Backup administrativo</h3>
-            <p class="muted">Baixa um JSON com clientes, keys, vendas, catálogo e versões dos patches.</p>
-            <button id="backupButton" class="secondary" type="button">Criar backup</button>
-          </div>
-          <div>
+
+        <section class="overview-lower-grid">
+          <section class="glass section-card compact-card">
+            <div class="eyebrow">PIX</div><h3>Recebimento</h3>
+            <p class="muted">PIX copia e cola configurado para o atendimento.</p>
+            <div class="copy-field"><code id="pixPreview">000201…F699</code><button id="copyPixButton" class="secondary" type="button">Copiar PIX</button></div>
+          </section>
+
+          <section class="glass section-card compact-card">
             <div class="eyebrow">WHATSAPP</div><h3>Mensagem de renovação</h3>
             <textarea id="renewalTemplate" rows="4" placeholder="Olá {nome}..."></textarea>
             <p class="hint">Variáveis: {nome}, {data}, {plano}, {key}</p>
             <button id="saveTemplate" class="secondary" type="button">Salvar mensagem</button>
-          </div>
+          </section>
+
+          <section class="glass section-card compact-card">
+            <div class="eyebrow">BACKUP</div><h3>Backup administrativo</h3>
+            <p class="muted">Exporta clientes, keys, vendas, catálogo e versões de patches.</p>
+            <button id="backupButton" class="secondary" type="button">Criar backup</button>
+          </section>
         </section>
       </section>
 
@@ -74,45 +106,67 @@
           <article class="stat glass"><span>Expiradas</span><strong id="keyExpired">0</strong></article>
           <article class="stat glass"><span>Revogadas</span><strong id="keyRevoked">0</strong></article>
         </div>
-        <section class="glass toolbar">
-          <div class="search"><span>⌕</span><input id="keySearch" type="text" placeholder="Cliente, nota, plano ou key" /></div>
-          <button id="exactSearchButton" class="secondary" type="button">Buscar key</button>
+
+        <section class="glass toolbar keys-toolbar">
+          <div class="search"><span>⌕</span><input id="keySearch" type="text" placeholder="Buscar pelo telefone, cliente ou key" /></div>
+          <button id="exactSearchButton" class="secondary" type="button">Buscar key exata</button>
           <button id="createKeyButton" class="primary" type="button">+ Criar key</button>
         </section>
+
         <section class="filter-row">
           <button class="filter active" data-key-filter="all">Todas</button>
           <button class="filter" data-key-filter="active">Ativas</button>
-          <button class="filter" data-key-filter="today">Vencem hoje</button>
-          <button class="filter" data-key-filter="3d">Vencem em 3 dias</button>
           <button class="filter" data-key-filter="pending">Pendentes</button>
           <button class="filter" data-key-filter="expired">Expiradas</button>
-          <button class="filter" data-key-filter="revoked">Revogadas</button>
+          <button class="filter" data-key-filter="revoked">Desativadas / revogadas</button>
         </section>
+
         <section class="glass bulkbar">
-          <label class="checkline"><input id="selectVisible" type="checkbox" /> Selecionar visíveis</label>
+          <div class="bulk-selection"><label class="checkline"><input id="selectVisible" type="checkbox" /> Selecionar visíveis</label><span id="selectedCount" class="pill">0 selecionadas</span></div>
           <select id="bulkAction">
-            <option value="">Ação em massa…</option><option value="revoke">Desativar</option><option value="reactivate">Reativar</option><option value="add7">+7 dias</option><option value="add30">+30 dias</option><option value="max">Alterar aparelhos</option><option value="delete">Excluir selecionadas</option>
+            <option value="">Ação em massa…</option>
+            <option value="revoke">Desativar</option>
+            <option value="reactivate">Reativar</option>
+            <option value="add7">Adicionar 7 dias</option>
+            <option value="add30">Adicionar 30 dias</option>
+            <option value="max">Alterar aparelhos</option>
+            <option value="delete">Excluir selecionadas</option>
           </select>
           <button id="applyBulk" class="secondary" type="button">Aplicar</button>
-          <button id="exportCsv" class="secondary" type="button">Exportar CSV</button>
-          <button id="exportTxt" class="secondary" type="button">Exportar TXT</button>
-          <button id="expireRevoked" class="secondary" type="button">Expirar desativadas</button>
-          <button id="deleteExpired" class="danger" type="button">Excluir expiradas</button>
+          <div class="bulk-more">
+            <button id="exportCsv" class="ghost compact" type="button">CSV</button>
+            <button id="exportTxt" class="ghost compact" type="button">TXT</button>
+            <button id="expireRevoked" class="ghost compact" type="button">Expirar desativadas</button>
+            <button id="deleteExpired" class="danger compact" type="button">Excluir expiradas</button>
+          </div>
         </section>
+
         <section id="keyList" class="card-list"></section>
         <div id="keyEmpty" class="empty hidden">Nenhuma key encontrada.</div>
       </section>
 
       <section id="clientsPanel" class="panel hidden">
-        <section class="glass toolbar"><div class="search"><span>⌕</span><input id="clientSearch" type="text" placeholder="Buscar cliente, WhatsApp ou tag" /></div><button id="newClientButton" class="primary" type="button">+ Novo cliente</button></section>
+        <section class="glass toolbar client-toolbar">
+          <div class="search"><span>⌕</span><input id="clientSearch" type="text" placeholder="Buscar por nome ou telefone" /></div>
+          <button id="newClientButton" class="primary" type="button">+ Novo cliente</button>
+        </section>
         <section id="clientList" class="client-grid"></section>
         <div id="clientEmpty" class="empty hidden">Nenhum cliente cadastrado ainda.</div>
       </section>
 
       <section id="renewalsPanel" class="panel hidden">
         <section class="glass section-card">
-          <div class="section-head"><div><div class="eyebrow">FILA DE RENOVAÇÃO</div><h3>Quem você pode chamar hoje</h3></div><span id="renewalPotential" class="pill">R$ 0 potencial</span></div>
-          <div class="filter-row no-margin"><button class="filter active" data-renew-filter="today">Hoje / vencidas</button><button class="filter" data-renew-filter="3d">Até 3 dias</button><button class="filter" data-renew-filter="7d">Até 7 dias</button><button class="filter" data-renew-filter="not-contacted">Não contatadas</button></div>
+          <div class="section-head">
+            <div><div class="eyebrow">FILA DE RENOVAÇÃO</div><h3>Clientes para contatar</h3><p class="muted">Use o WhatsApp, marque o contato e renove direto daqui.</p></div>
+            <span id="renewalPotential" class="pill">R$ 0 potencial</span>
+          </div>
+          <div class="filter-row no-margin">
+            <button class="filter active" data-renew-filter="today">Hoje / vencidas</button>
+            <button class="filter" data-renew-filter="tomorrow">Amanhã</button>
+            <button class="filter" data-renew-filter="3d">Até 3 dias</button>
+            <button class="filter" data-renew-filter="7d">Até 7 dias</button>
+            <button class="filter" data-renew-filter="not-contacted">Não contatadas</button>
+          </div>
         </section>
         <section id="renewalList" class="card-list"></section>
         <div id="renewalEmpty" class="empty hidden">Nenhuma renovação nesse filtro.</div>
@@ -142,34 +196,45 @@
     </section>
   </main>
 
-  <!-- Modais customizados: sem <dialog>, evitando o bug de submit/fechar do Safari -->
   <div id="modalBackdrop" class="modal-backdrop hidden"></div>
 
   <div id="createKeyModal" class="modal hidden" role="dialog" aria-modal="true"><div class="modal-card glass">
     <div class="modal-head"><div><div class="eyebrow">NOVA VENDA</div><h3>Criar key</h3></div><button class="icon-button close-modal" type="button">×</button></div>
     <form id="createKeyForm" class="form-grid">
-      <label><span>Cliente</span><select id="createClient"><option value="">Sem cliente</option></select></label>
-      <label><span>Plano / produto</span><input id="createPlan" type="text" placeholder="Ex.: Mensal" /></label>
-      <label><span>Duração</span><select id="createDuration"><option value="3h">3 horas</option><option value="10h">10 horas</option><option value="1d">1 dia</option><option value="3d">3 dias</option><option value="1w">1 semana</option><option value="1m" selected>30 dias</option><option value="1y">1 ano</option></select></label>
+      <label class="full"><span>Procurar cliente por nome ou telefone</span><div class="search embedded"><span>⌕</span><input id="createClientSearch" type="text" placeholder="Digite o número ou nome" /></div></label>
+      <label class="full"><span>Cliente</span><select id="createClient"><option value="">Sem cliente</option></select></label>
+      <label class="full"><span>Plano</span><select id="createPlan">
+        <option value="3h_test">3 horas • Teste grátis</option>
+        <option value="3h_paid">3 horas • R$ 4</option>
+        <option value="10h">10 horas • R$ 8</option>
+        <option value="1d">1 dia • R$ 14</option>
+        <option value="3d">3 dias • R$ 30</option>
+        <option value="1w">7 dias • R$ 40</option>
+        <option value="1m" selected>1 mês • R$ 70</option>
+      </select></label>
+      <input id="createDuration" type="hidden" value="1m" />
       <label><span>Aparelhos por key</span><input id="createDevices" type="number" min="1" max="20" value="1" /></label>
       <label><span>Quantidade de keys</span><input id="createQuantity" type="number" min="1" max="100" value="1" /></label>
-      <label><span>Valor por key (R$)</span><input id="createPrice" type="number" min="0" step="0.01" placeholder="0,00" /></label>
-      <label class="full"><span>Observação</span><input id="createNote" type="text" maxlength="200" /></label>
+      <label><span>Valor por key (R$)</span><input id="createPrice" type="number" min="0" step="0.01" value="70" /></label>
+      <label><span>Total previsto</span><input id="createTotal" type="text" value="R$ 70,00" readonly /></label>
+      <label class="full"><span>Observação</span><input id="createNote" type="text" maxlength="200" placeholder="Opcional" /></label>
       <button id="submitCreateKey" class="primary wide full" type="submit">Gerar key(s)</button>
     </form>
   </div></div>
 
-  <div id="keysResultModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">KEYS GERADAS</div><h3 id="keysResultTitle">Copie agora</h3></div><button class="icon-button close-modal" type="button">×</button></div><pre id="keysResult" class="key-result"></pre><button id="copyAllCreated" class="primary wide" type="button">Copiar todas</button></div></div>
+  <div id="keysResultModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">KEYS GERADAS</div><h3 id="keysResultTitle">Copie agora</h3></div><button class="icon-button close-modal" type="button">×</button></div><pre id="keysResult" class="key-result"></pre><div class="modal-actions"><button id="copyAllCreated" class="primary" type="button">Copiar todas</button><button id="copyPixAfterCreate" class="secondary" type="button">Copiar PIX</button></div></div></div>
 
-  <div id="clientModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">CLIENTE</div><h3 id="clientModalTitle">Novo cliente</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="clientForm" class="form-grid"><input id="clientId" type="hidden" /><label><span>Nome</span><input id="clientName" required /></label><label><span>WhatsApp</span><input id="clientPhone" inputmode="tel" placeholder="55219..." /></label><label><span>E-mail</span><input id="clientEmail" type="email" /></label><label><span>Origem</span><input id="clientSource" placeholder="Instagram, indicação..." /></label><label class="full"><span>Tags (separadas por vírgula)</span><input id="clientTags" placeholder="VIP, recorrente" /></label><label class="full"><span>Observações</span><textarea id="clientNotes" rows="3"></textarea></label><button class="primary wide full" type="submit">Salvar cliente</button></form></div></div>
+  <div id="clientModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">CLIENTE</div><h3 id="clientModalTitle">Novo cliente</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="clientForm" class="form-grid"><input id="clientId" type="hidden" /><label class="full"><span>Nome</span><input id="clientName" required maxlength="120" /></label><label class="full"><span>Número de telefone / WhatsApp</span><input id="clientPhone" inputmode="tel" placeholder="Ex.: 21999999999" maxlength="40" /></label><button class="primary wide full" type="submit">Salvar cliente</button></form></div></div>
 
   <div id="clientDetailModal" class="modal hidden"><div class="modal-card glass large"><div class="modal-head"><div><div class="eyebrow">HISTÓRICO DO CLIENTE</div><h3 id="clientDetailTitle">Cliente</h3></div><button class="icon-button close-modal" type="button">×</button></div><div id="clientDetailBody"></div></div></div>
 
-  <div id="editKeyModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">EDITAR KEY</div><h3 id="editKeyTitle">Licença</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="editKeyForm" class="form-grid"><input id="editKeyId" type="hidden" /><label><span>Cliente</span><select id="editKeyClient"><option value="">Sem cliente</option></select></label><label><span>Plano</span><input id="editKeyPlan" /></label><label><span>Valor (R$)</span><input id="editKeyPrice" type="number" min="0" step="0.01" /></label><label><span>Máx. aparelhos</span><input id="editKeyDevices" type="number" min="1" max="20" /></label><label class="full"><span>Observação</span><input id="editKeyNote" maxlength="200" /></label><button class="primary wide full" type="submit">Salvar</button></form></div></div>
+  <div id="keyDetailModal" class="modal hidden"><div class="modal-card glass large"><div class="modal-head"><div><div class="eyebrow">PAINEL INDIVIDUAL</div><h3 id="keyDetailTitle">Key</h3></div><button class="icon-button close-modal" type="button">×</button></div><div id="keyDetailBody"></div></div></div>
+
+  <div id="editKeyModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">EDITAR KEY</div><h3 id="editKeyTitle">Licença</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="editKeyForm" class="form-grid"><input id="editKeyId" type="hidden" /><label class="full"><span>Cliente</span><select id="editKeyClient"><option value="">Sem cliente</option></select></label><label class="full"><span>Plano</span><input id="editKeyPlan" /></label><label><span>Valor (R$)</span><input id="editKeyPrice" type="number" min="0" step="0.01" /></label><label><span>Máx. aparelhos</span><input id="editKeyDevices" type="number" min="1" max="20" /></label><label class="full"><span>Observação</span><input id="editKeyNote" maxlength="200" /></label><button class="primary wide full" type="submit">Salvar</button></form></div></div>
 
   <div id="devicesModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">APARELHOS</div><h3>Dispositivos desta key</h3></div><button class="icon-button close-modal" type="button">×</button></div><div id="deviceList" class="mini-list"></div></div></div>
 
-  <div id="renewModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">RENOVAR</div><h3 id="renewTitle">Licença</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="renewForm" class="form-grid"><input id="renewLicenseId" type="hidden" /><label><span>Adicionar</span><select id="renewSeconds"><option value="86400">1 dia</option><option value="604800">7 dias</option><option value="2592000" selected>30 dias</option><option value="31536000">1 ano</option></select></label><label><span>Valor recebido (R$)</span><input id="renewAmount" type="number" min="0" step="0.01" /></label><label class="full"><span>Observação</span><input id="renewNote" /></label><button class="primary wide full" type="submit">Confirmar renovação</button></form></div></div>
+  <div id="renewModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">RENOVAR</div><h3 id="renewTitle">Licença</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="renewForm" class="form-grid"><input id="renewLicenseId" type="hidden" /><label class="full"><span>Plano de renovação</span><select id="renewSeconds"><option value="86400" data-price="14">1 dia • R$ 14</option><option value="604800" data-price="40">7 dias • R$ 40</option><option value="2592000" data-price="70" selected>1 mês • R$ 70</option></select></label><label><span>Valor recebido (R$)</span><input id="renewAmount" type="number" min="0" step="0.01" value="70" /></label><div class="copy-payment"><span>PIX para cobrar</span><button id="renewCopyPix" class="secondary" type="button">Copiar PIX</button></div><label class="full"><span>Observação</span><input id="renewNote" placeholder="Opcional" /></label><button class="primary wide full" type="submit">Confirmar renovação</button></form></div></div>
 
   <div id="importPatchModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">NOVO PATCH</div><h3>Importar .3105</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="importPatchForm" class="form-grid"><label><span>Nome no app</span><input id="importPatchName" required /></label><label><span>Status</span><select id="importPatchEnabled"><option value="true">Ativo</option><option value="false">Desativado</option></select></label><label class="full"><span>Descrição</span><input id="importPatchDescription" /></label><label class="full"><span>Arquivo .3105</span><input id="importPatchFile" type="file" accept=".3105,application/octet-stream" required /></label><div id="importProgress" class="progress full hidden">Enviando…</div><button class="primary wide full" type="submit">Importar patch</button></form></div></div>
 
@@ -177,6 +242,6 @@
 
   <div id="versionsModal" class="modal hidden"><div class="modal-card glass large"><div class="modal-head"><div><div class="eyebrow">HISTÓRICO</div><h3 id="versionsTitle">Versões do patch</h3></div><button class="icon-button close-modal" type="button">×</button></div><div id="versionList" class="mini-list"></div></div></div>
 
-  <script type="module" src="app.js?v=0.2-alpha"></script>
+  <script type="module" src="app.js?v=1.0.0-alpha"></script>
 </body>
 </html>
