@@ -1,3 +1,4 @@
+// Satanabe Admin v0.2 Alpha — interface refresh; lógica funcional preservada da baseline v0.1 Alpha.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.116.0'
 
 const SUPABASE_URL='https://agkjutuvfjcahckhjkra.supabase.co'
