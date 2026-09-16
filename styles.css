@@ -99,3 +99,10 @@ label{display:grid;gap:5px}label span,.copy-payment span{font-size:11px;color:#c
   .form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:1}.modal{padding:9px;align-items:end}.modal-card,.modal-card.large{width:100%;max-height:88vh;border-radius:20px 20px 11px 11px;padding:14px}.detail-grid{grid-template-columns:1fr 1fr}.detail-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.detail-actions button{width:100%}input,select,textarea{font-size:16px}.modal-actions{flex-direction:column}
 }
 @media (max-width:390px){.summary-grid.seven,.summary-grid.four{gap:7px}.stat{padding:10px}.toolbar{grid-template-columns:1fr}.toolbar .search,.toolbar button{grid-column:1}.bulkbar{grid-template-columns:1fr}.bulk-selection,.bulkbar select,.bulkbar #applyBulk,.bulk-more{grid-column:1}.detail-grid{grid-template-columns:1fr}.row-actions,.detail-actions,.patch-actions,.system-actions,.patchbar{grid-template-columns:1fr 1fr}}
+
+/* v1.0.1 alpha — safer client lookup inside Create Key */
+.search-with-action{gap:8px}
+.search-with-action input{min-width:0}
+.search-with-action .mini{flex:0 0 auto;margin:0;height:32px;padding:0 12px}
+.field-hint{display:block;margin-top:6px;color:var(--muted);font-size:12px;line-height:1.35}
+@media (max-width:560px){.search-with-action{flex-wrap:wrap}.search-with-action input{flex:1 1 160px}.search-with-action .mini{height:34px}}

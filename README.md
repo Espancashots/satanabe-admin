@@ -1,4 +1,4 @@
-# Satanabe Admin v1.0 Alpha
+# Satanabe Admin v1.0.1 Alpha
 
 Painel administrativo responsivo para gerenciamento de keys, clientes, cobranças/renovações, patches e logs.
 

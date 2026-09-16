@@ -58,3 +58,11 @@ Primeira entrega grande do novo Satanabe Admin, construída sobre a versão-base
 - Patches: mesmas operações e API da versão-base.
 - Logs/Atividade: mesma origem de dados e comportamento da versão-base.
 - Supabase Auth e allowlist existentes.
+
+## v1.0.1 Alpha — 2026-09-16
+- Corrigido: pressionar Enter no campo de busca de cliente não cria mais uma key.
+- Corrigido: busca de cliente por telefone agora ignora máscara, espaços, parênteses, hífen e `+55` quando aplicável.
+- Melhorado: busca por nome ignora acentos e maiúsculas/minúsculas.
+- Melhorado: um único cliente encontrado é selecionado automaticamente; vários resultados exigem escolha explícita.
+- Melhorado: botão `Buscar` separado (`type=button`) e mensagem de quantidade de resultados.
+- Melhorado: ao abrir `Criar key`, o painel tenta recarregar os clientes se a lista local estiver vazia.

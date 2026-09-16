@@ -113,12 +113,31 @@ function renderKeys(){
 }
 function updateSelectedCount(){$('selectedCount').textContent=`${selected.size} selecionada${selected.size===1?'':'s'}`}
 
+function normalizeSearchText(v=''){return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()}
+function clientMatches(c,query=''){
+  const q=normalizeSearchText(query);if(!q)return true
+  const qDigits=String(query).replace(/\D/g,'')
+  const name=normalizeSearchText(c?.name||''),phone=normalizeSearchText(c?.phone||''),phoneDigits=String(c?.phone||'').replace(/\D/g,'')
+  return name.includes(q)||phone.includes(q)||(qDigits.length>=3&&phoneDigits.includes(qDigits))
+}
 function fillClientSelects(){
   fillCreateClientSelect($('createClientSearch')?.value||'')
   const sel=$('editKeyClient');if(sel){const old=sel.value;sel.innerHTML='<option value="">Sem cliente</option>'+clients.map(c=>`<option value="${c.id}">${esc(c.name)}${c.phone?' • '+esc(c.phone):''}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old}
 }
 function fillCreateClientSelect(query=''){
-  const sel=$('createClient');if(!sel)return;const old=sel.value,q=query.trim().toLowerCase();const rows=clients.filter(c=>!q||[c.name,c.phone].some(v=>String(v||'').toLowerCase().includes(q)));sel.innerHTML='<option value="">Sem cliente</option>'+rows.map(c=>`<option value="${c.id}">${esc(c.name)}${c.phone?' • '+esc(c.phone):''}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old
+  const sel=$('createClient');if(!sel)return []
+  const old=sel.value,q=String(query||'').trim(),rows=clients.filter(c=>clientMatches(c,q)),status=$('createClientSearchStatus')
+  let first='<option value="">Sem cliente</option>'
+  if(q&&rows.length>1)first=`<option value="">Escolha um dos ${rows.length} clientes encontrados</option>`
+  if(q&&!rows.length)first='<option value="">Nenhum cliente encontrado</option>'
+  sel.innerHTML=first+rows.map(c=>`<option value="${c.id}">${esc(c.name)}${c.phone?' • '+esc(c.phone):''}</option>`).join('')
+  const qDigits=q.replace(/\D/g,'')
+  const exact=rows.find(c=>qDigits.length>=8&&String(c.phone||'').replace(/\D/g,'')===qDigits)
+  if(exact)sel.value=exact.id
+  else if(rows.length===1&&q)sel.value=rows[0].id
+  else if([...sel.options].some(o=>o.value===old)&&!q)sel.value=old
+  if(status){if(!q)status.textContent=`${clients.length} cliente(s) disponível(is). Digite para filtrar.`;else if(!rows.length)status.textContent='Nenhum cliente encontrado. Cadastre o cliente primeiro ou revise o número.';else if(rows.length===1)status.textContent=`1 cliente encontrado e selecionado: ${rows[0].name}.`;else status.textContent=`${rows.length} clientes encontrados. Escolha um abaixo.`}
+  return rows
 }
 function renderClients(){
   if(!$('clientList'))return
@@ -172,9 +191,12 @@ $('exactSearchButton').addEventListener('click',async()=>{const key=$('keySearch
 
 function syncCreatePlan(){const p=PLAN_CATALOG[$('createPlan').value]||PLAN_CATALOG['1m'];$('createDuration').value=p.duration;$('createPrice').value=String(p.price);syncCreateTotal()}
 function syncCreateTotal(){const q=Math.max(1,Number($('createQuantity').value)||1),p=Math.max(0,Number($('createPrice').value)||0);$('createTotal').value=money(q*p)}
-$('createPlan').addEventListener('change',syncCreatePlan);$('createQuantity').addEventListener('input',syncCreateTotal);$('createPrice').addEventListener('input',syncCreateTotal);$('createClientSearch').addEventListener('input',e=>fillCreateClientSelect(e.target.value))
-$('createKeyButton').addEventListener('click',()=>{$('createKeyForm').reset();$('createPlan').value='1m';$('createDevices').value='1';$('createQuantity').value='1';$('createClientSearch').value='';fillClientSelects();syncCreatePlan();openModal('createKeyModal')})
-$('createKeyForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('submitCreateKey'),p=PLAN_CATALOG[$('createPlan').value]||PLAN_CATALOG['1m'];btn.disabled=true;btn.textContent='Gerando…';try{const d=await clientApi({action:'create_keys',client_id:$('createClient').value||null,plan:p.name,duration:$('createDuration').value,max_devices:Number($('createDevices').value),quantity:Number($('createQuantity').value),price_paid:$('createPrice').value,note:$('createNote').value.trim()});const keys=(d.created_keys||[]).map(x=>x.license_key);closeModals();$('keysResult').textContent=keys.join('\n');$('keysResultTitle').textContent=`${keys.length} key(s) gerada(s)`;openModal('keysResultModal');await refreshCore()}catch(err){showFlash(err.message)}finally{btn.disabled=false;btn.textContent='Gerar key(s)'}})
+$('createPlan').addEventListener('change',syncCreatePlan);$('createQuantity').addEventListener('input',syncCreateTotal);$('createPrice').addEventListener('input',syncCreateTotal)
+$('createClientSearch').addEventListener('input',e=>fillCreateClientSelect(e.target.value))
+$('createClientSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();const rows=fillCreateClientSelect(e.currentTarget.value);if(rows.length>1)$('createClient').focus();else if(rows.length===1)showFlash(`Cliente selecionado: ${rows[0].name}`);else showFlash('Cliente não encontrado.')}})
+$('createClientSearchButton').addEventListener('click',()=>{const rows=fillCreateClientSelect($('createClientSearch').value);if(rows.length>1)$('createClient').focus();else if(rows.length===1)showFlash(`Cliente selecionado: ${rows[0].name}`);else showFlash('Cliente não encontrado.')})
+$('createKeyButton').addEventListener('click',async()=>{try{if(!clients.length)await loadClients()}catch(err){showFlash('Não foi possível carregar os clientes: '+err.message)}$('createKeyForm').reset();$('createPlan').value='1m';$('createDevices').value='1';$('createQuantity').value='1';$('createClientSearch').value='';fillClientSelects();syncCreatePlan();openModal('createKeyModal')})
+$('createKeyForm').addEventListener('submit',async e=>{e.preventDefault();if(e.submitter&&e.submitter.id!=='submitCreateKey')return;const btn=$('submitCreateKey'),p=PLAN_CATALOG[$('createPlan').value]||PLAN_CATALOG['1m'];btn.disabled=true;btn.textContent='Gerando…';try{const d=await clientApi({action:'create_keys',client_id:$('createClient').value||null,plan:p.name,duration:$('createDuration').value,max_devices:Number($('createDevices').value),quantity:Number($('createQuantity').value),price_paid:$('createPrice').value,note:$('createNote').value.trim()});const keys=(d.created_keys||[]).map(x=>x.license_key);closeModals();$('keysResult').textContent=keys.join('\n');$('keysResultTitle').textContent=`${keys.length} key(s) gerada(s)`;openModal('keysResultModal');await refreshCore()}catch(err){showFlash(err.message)}finally{btn.disabled=false;btn.textContent='Gerar key(s)'}})
 $('copyAllCreated').addEventListener('click',()=>copyText($('keysResult').textContent,'Keys copiadas.'))
 
 $('selectVisible').addEventListener('change',e=>{for(const l of filteredKeys())e.target.checked?selected.add(l.id):selected.delete(l.id);renderKeys()})
