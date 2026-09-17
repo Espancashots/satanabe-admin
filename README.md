@@ -1,4 +1,4 @@
-# Satanabe Admin v1.1 Alpha
+# Satanabe Admin v1.1.1 Alpha
 
 Painel administrativo responsivo para gerenciamento de keys, clientes, cobranças/renovações, revendedores, patches e logs.
 
@@ -22,13 +22,15 @@ A aba **Revendedores** permite:
 - criar a conta-base de um revendedor;
 - definir nome da loja, responsável, e-mail, WhatsApp e PIX;
 - preparar o identificador/slug que será usado futuramente pela Store;
-- permitir ou remover acesso futuro às abas Overview, Keys e Clientes;
+- permitir ou remover acesso às abas Overview, Keys, Clientes e Receita;
 - visualizar receita, keys e clientes separados por revendedor;
 - entrar no painel interno de cada revendedor pelo Admin;
 - ativar/desativar o revendedor;
 - ativar/desativar as keys pertencentes a ele.
 
-Nesta versão, **não é criado ainda o site/Store nem o login do revendedor**. Essa será a próxima etapa.
+O login do revendedor agora é integrado ao Supabase Auth. Ao criar um revendedor com e-mail, o Admin tenta enviar o acesso automaticamente. Se o envio de e-mail não estiver disponível, o Admin exibe um **link de acesso** para copiar e enviar pelo WhatsApp.
+
+A Store multi-loja ainda não faz parte desta versão.
 
 ## Isolamento dos dados
 
@@ -52,4 +54,18 @@ A área de revendedores usa uma Edge Function protegida por sessão do Supabase 
 
 ## Versão
 
-`1.1.0-alpha`
+`1.1.1-alpha`
+
+
+## v1.1.1 Alpha
+- Acesso de revendedor por e-mail integrado ao Supabase Auth.
+- Botão Enviar/Reenviar acesso na aba Revendedores.
+- Permissão separada para Receita.
+- Atalho para o Satanabe Reseller.
+
+
+## Acesso do revendedor
+
+O painel esperado é `https://espancashots.github.io/satanabe-reseller/`. Em Supabase Auth → URL Configuration, adicione `https://espancashots.github.io/satanabe-reseller/**` aos Redirect URLs.
+
+Para envio automático de convites a qualquer endereço de e-mail em produção, configure SMTP próprio no Supabase Auth. Sem SMTP próprio, o Admin consegue gerar um link manual para você copiar e enviar ao revendedor.

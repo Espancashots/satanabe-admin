@@ -1,3 +1,12 @@
+## v1.1.1 Alpha
+- Integração do acesso do revendedor com Supabase Auth.
+- Envio e reenvio de acesso por e-mail quando SMTP permitir.
+- Fallback com link de acesso manual para copiar e enviar por WhatsApp.
+- Status de acesso vinculado/pendente.
+- Nova permissão Receita.
+- Atalho para o painel do revendedor.
+- Funções administrativas antigas do banco deixaram de ser executáveis por usuários autenticados comuns.
+
 # Changelog — Satanabe Admin
 
 ## v1.0.0 Alpha — 2026-09-16

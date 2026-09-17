@@ -179,7 +179,7 @@
               <button id="backToResellers" class="ghost compact" type="button">← Voltar</button>
               <div><div class="eyebrow">PAINEL DO REVENDEDOR</div><h3 id="resellerDetailName">Loja</h3><div id="resellerDetailMeta" class="meta"></div></div>
             </div>
-            <div class="row-actions"><button id="editResellerButton" class="secondary" type="button">Editar</button><button id="toggleResellerButton" class="danger" type="button">Desativar revendedor</button></div>
+            <div class="row-actions"><button id="openResellerPanelButton" class="ghost" type="button">Abrir painel</button><button id="sendResellerAccessButton" class="secondary" type="button">Enviar acesso</button><button id="editResellerButton" class="secondary" type="button">Editar</button><button id="toggleResellerButton" class="danger" type="button">Desativar revendedor</button></div>
           </section>
 
           <div class="summary-grid six reseller-detail-summary">
@@ -306,15 +306,17 @@
     <form id="resellerForm" class="form-grid"><input id="resellerId" type="hidden" />
       <label><span>Nome da loja</span><input id="resellerStoreName" required maxlength="120" placeholder="Ex.: Alpha Store" /></label>
       <label><span>Responsável</span><input id="resellerOwnerName" maxlength="120" placeholder="Nome do revendedor" /></label>
-      <label><span>E-mail</span><input id="resellerEmail" type="email" maxlength="180" placeholder="Usaremos no login do painel depois" /></label>
+      <label><span>E-mail</span><input id="resellerEmail" type="email" maxlength="180" placeholder="E-mail usado para entrar no painel" /></label>
       <label><span>WhatsApp</span><input id="resellerWhatsapp" inputmode="tel" maxlength="40" placeholder="21999999999" /></label>
       <label class="full"><span>Identificador da loja</span><input id="resellerSlug" maxlength="80" placeholder="alpha-store" /><small class="field-hint">Será usado futuramente no endereço da Store. Deixe vazio para gerar pelo nome.</small></label>
       <label class="full"><span>PIX copia e cola do revendedor</span><textarea id="resellerPix" rows="4" maxlength="1500" placeholder="O dinheiro da Store dele irá para este PIX quando integrarmos a loja."></textarea></label>
-      <fieldset class="full permission-box"><legend>Abas permitidas no futuro painel</legend><label class="checkline"><input id="resellerPermOverview" type="checkbox" checked /> Overview</label><label class="checkline"><input id="resellerPermKeys" type="checkbox" checked /> Keys</label><label class="checkline"><input id="resellerPermClients" type="checkbox" checked /> Clientes</label></fieldset>
+      <fieldset class="full permission-box"><legend>Abas permitidas no painel</legend><label class="checkline"><input id="resellerPermOverview" type="checkbox" checked /> Overview</label><label class="checkline"><input id="resellerPermKeys" type="checkbox" checked /> Keys</label><label class="checkline"><input id="resellerPermClients" type="checkbox" checked /> Clientes</label><label class="checkline"><input id="resellerPermRevenue" type="checkbox" checked /> Receita</label></fieldset>
       <label class="full"><span>Observação interna</span><input id="resellerNotes" maxlength="500" placeholder="Opcional" /></label>
       <button id="saveResellerButton" class="primary wide full" type="submit">Criar revendedor</button>
     </form>
   </div></div>
+
+  <div id="accessLinkModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">ACESSO DO REVENDEDOR</div><h3>Link pronto para enviar</h3></div><button class="icon-button close-modal" type="button">×</button></div><p id="accessLinkHint" class="muted">Copie este link e envie ao revendedor.</p><label class="full"><span>Link de acesso</span><textarea id="accessLinkValue" rows="5" readonly></textarea></label><div class="modal-actions"><button id="copyAccessLink" class="primary" type="button">Copiar link</button><button class="secondary close-modal" type="button">Fechar</button></div></div></div>
 
   <div id="importPatchModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">NOVO PATCH</div><h3>Importar .3105</h3></div><button class="icon-button close-modal" type="button">×</button></div><form id="importPatchForm" class="form-grid"><label><span>Nome no app</span><input id="importPatchName" required /></label><label><span>Status</span><select id="importPatchEnabled"><option value="true">Ativo</option><option value="false">Desativado</option></select></label><label class="full"><span>Descrição</span><input id="importPatchDescription" /></label><label class="full"><span>Arquivo .3105</span><input id="importPatchFile" type="file" accept=".3105,application/octet-stream" required /></label><div id="importProgress" class="progress full hidden">Enviando…</div><button class="primary wide full" type="submit">Importar patch</button></form></div></div>
 
