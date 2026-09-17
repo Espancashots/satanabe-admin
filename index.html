@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#09090b" />
-  <title>Satanabe Admin v1.1 Alpha</title>
-  <link rel="stylesheet" href="styles.css?v=1.1.0-alpha" />
+  <title>Satanabe Admin v1.1.3 Alpha</title>
+  <link rel="stylesheet" href="styles.css?v=1.1.3-alpha" />
 </head>
 <body>
   <main class="shell">
@@ -25,7 +25,7 @@
     <section id="appView" class="hidden">
       <header class="topbar">
         <div>
-          <div class="eyebrow">SATANABE ADMIN • V1.1 ALPHA</div>
+          <div class="eyebrow">SATANABE ADMIN • V1.1.3 ALPHA</div>
           <h2 id="pageTitle">Overview</h2>
         </div>
         <div class="top-actions">
@@ -166,7 +166,7 @@
 
         <div id="resellerListView">
           <section class="glass toolbar client-toolbar">
-            <div class="search"><span>⌕</span><input id="resellerSearch" type="text" placeholder="Buscar loja, responsável, e-mail ou WhatsApp" /></div>
+            <div class="search"><span>⌕</span><input id="resellerSearch" type="text" placeholder="Buscar loja, responsável, login ou WhatsApp" /></div>
             <button id="newResellerButton" class="primary" type="button">+ Criar revendedor</button>
           </section>
           <section id="resellerList" class="client-grid reseller-grid"></section>
@@ -179,7 +179,7 @@
               <button id="backToResellers" class="ghost compact" type="button">← Voltar</button>
               <div><div class="eyebrow">PAINEL DO REVENDEDOR</div><h3 id="resellerDetailName">Loja</h3><div id="resellerDetailMeta" class="meta"></div></div>
             </div>
-            <div class="row-actions"><button id="openResellerPanelButton" class="ghost" type="button">Abrir painel</button><button id="sendResellerAccessButton" class="secondary" type="button">Enviar acesso</button><button id="editResellerButton" class="secondary" type="button">Editar</button><button id="toggleResellerButton" class="danger" type="button">Desativar revendedor</button><button id="removeResellerButton" class="danger" type="button">Remover revendedor</button></div>
+            <div class="row-actions"><button id="openResellerPanelButton" class="ghost" type="button">Abrir painel</button><button id="sendResellerAccessButton" class="secondary" type="button">Gerenciar acesso</button><button id="editResellerButton" class="secondary" type="button">Editar</button><button id="toggleResellerButton" class="danger" type="button">Desativar revendedor</button><button id="removeResellerButton" class="danger" type="button">Remover revendedor</button></div>
           </section>
 
           <div class="summary-grid six reseller-detail-summary">
@@ -306,7 +306,8 @@
     <form id="resellerForm" class="form-grid"><input id="resellerId" type="hidden" />
       <label><span>Nome da loja</span><input id="resellerStoreName" required maxlength="120" placeholder="Ex.: Alpha Store" /></label>
       <label><span>Responsável</span><input id="resellerOwnerName" maxlength="120" placeholder="Nome do revendedor" /></label>
-      <label><span>E-mail</span><input id="resellerEmail" type="email" maxlength="180" placeholder="E-mail usado para entrar no painel" /></label>
+      <label><span>Login do painel</span><input id="resellerLogin" type="text" autocomplete="off" required minlength="3" maxlength="40" placeholder="Ex.: luckycheats" /><small class="field-hint">Letras, números, ponto, hífen ou underline.</small></label>
+      <label><span>Senha do painel</span><input id="resellerPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Escolha a senha" /><small id="resellerPasswordHint" class="field-hint">Defina a senha inicial do revendedor.</small></label>
       <label><span>WhatsApp</span><input id="resellerWhatsapp" inputmode="tel" maxlength="40" placeholder="21999999999" /></label>
       <label class="full"><span>Identificador da loja</span><input id="resellerSlug" maxlength="80" placeholder="alpha-store" /><small class="field-hint">Será usado futuramente no endereço da Store. Deixe vazio para gerar pelo nome.</small></label>
       <label class="full"><span>PIX copia e cola do revendedor</span><textarea id="resellerPix" rows="4" maxlength="1500" placeholder="O dinheiro da Store dele irá para este PIX quando integrarmos a loja."></textarea></label>
@@ -314,6 +315,15 @@
       <label class="full"><span>Observação interna</span><input id="resellerNotes" maxlength="500" placeholder="Opcional" /></label>
       <button id="saveResellerButton" class="primary wide full" type="submit">Criar revendedor</button>
     </form>
+  </div></div>
+
+  <div id="resellerAccessModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">ACESSO AO PAINEL</div><h3 id="accessResellerName">Revendedor</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+    <form id="resellerAccessForm" class="form-grid"><input id="accessResellerId" type="hidden" />
+      <label class="full"><span>Login</span><input id="accessLogin" type="text" autocomplete="off" required minlength="3" maxlength="40" placeholder="Ex.: luckycheats" /><small class="field-hint">O revendedor usará este texto para entrar.</small></label>
+      <label class="full"><span>Nova senha</span><input id="accessPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Digite apenas se quiser criar/trocar" /><small id="accessPasswordHint2" class="field-hint">Deixe em branco para manter a senha atual.</small></label>
+      <button id="saveResellerAccessButton" class="primary wide full" type="submit">Salvar acesso</button>
+    </form>
+    <div class="modal-actions"><button id="copyResellerLogin" class="secondary" type="button">Copiar login</button><button id="openResellerLoginPage" class="ghost" type="button">Abrir tela de login</button></div>
   </div></div>
 
   <div id="accessLinkModal" class="modal hidden"><div class="modal-card glass"><div class="modal-head"><div><div class="eyebrow">ACESSO DO REVENDEDOR</div><h3>Link pronto para enviar</h3></div><button class="icon-button close-modal" type="button">×</button></div><p id="accessLinkHint" class="muted">Copie este link e envie ao revendedor.</p><label class="full"><span>Link de acesso</span><textarea id="accessLinkValue" rows="5" readonly></textarea></label><div class="modal-actions"><button id="copyAccessLink" class="primary" type="button">Copiar link</button><button class="secondary close-modal" type="button">Fechar</button></div></div></div>
@@ -324,6 +334,6 @@
 
   <div id="versionsModal" class="modal hidden"><div class="modal-card glass large"><div class="modal-head"><div><div class="eyebrow">HISTÓRICO</div><h3 id="versionsTitle">Versões do patch</h3></div><button class="icon-button close-modal" type="button">×</button></div><div id="versionList" class="mini-list"></div></div></div>
 
-  <script type="module" src="app.js?v=1.1.0-alpha"></script>
+  <script type="module" src="app.js?v=1.1.3-alpha"></script>
 </body>
 </html>

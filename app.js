@@ -8,7 +8,8 @@ const CLIENT_API=`${SUPABASE_URL}/functions/v1/admin-clients-api`
 const PATCH_API=`${SUPABASE_URL}/functions/v1/admin-patches-api`
 const RESELLER_API=`${SUPABASE_URL}/functions/v1/admin-resellers-api`
 const RESELLER_DELETE_API=`${SUPABASE_URL}/functions/v1/admin-resellers-delete`
-const RESELLER_PANEL_URL='https://espancashots.github.io/revendedor-site-/'
+const RESELLER_CREDENTIALS_API=`${SUPABASE_URL}/functions/v1/admin-reseller-credentials-api`
+const RESELLER_PANEL_URL=`${SUPABASE_URL}/functions/v1/reseller-login`
 const PIX_COPY_PASTE='00020101021126580014br.gov.bcb.pix01360c0f1a70-bf41-4479-a66d-c6a527cf76fe5204000053039865802BR5917JOAO P M BAPTISTA6013CACHOEIRAS DE62070503***6304F699'
 
 const PLAN_CATALOG={
@@ -73,7 +74,7 @@ function handleAccessDelivery(access){
 
 async function session(){const {data}=await supabase.auth.getSession();return data.session}
 async function callApi(url,body){const s=await session();if(!s)throw new Error('Sessão expirada. Entre novamente.');const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':`Bearer ${s.access_token}`},body:JSON.stringify(body)});const data=await res.json().catch(()=>({}));if(!res.ok){const e=new Error(data.detail||data.error||`Erro ${res.status}`);e.code=data.error;throw e}return data}
-const oldApi=b=>callApi(OLD_API,b),dashApi=b=>callApi(DASH_API,b),clientApi=b=>callApi(CLIENT_API,b),patchApi=b=>callApi(PATCH_API,b),resellerApi=b=>callApi(RESELLER_API,b),resellerDeleteApi=b=>callApi(RESELLER_DELETE_API,b)
+const oldApi=b=>callApi(OLD_API,b),dashApi=b=>callApi(DASH_API,b),clientApi=b=>callApi(CLIENT_API,b),patchApi=b=>callApi(PATCH_API,b),resellerApi=b=>callApi(RESELLER_API,b),resellerDeleteApi=b=>callApi(RESELLER_DELETE_API,b),resellerCredentialsApi=b=>callApi(RESELLER_CREDENTIALS_API,b)
 
 function openModal(id){document.querySelectorAll('.modal').forEach(x=>x.classList.add('hidden'));$('modalBackdrop').classList.remove('hidden');$(id).classList.remove('hidden');document.body.style.overflow='hidden'}
 function closeModals(){document.querySelectorAll('.modal').forEach(x=>x.classList.add('hidden'));$('modalBackdrop').classList.add('hidden');document.body.style.overflow=''}
@@ -99,17 +100,28 @@ function renderResellerSummary(){
   $('resellerRevenue').textContent=money(resellerSummary.month_revenue||0)
 }
 function resellerSlug(v=''){return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)}
+function resellerAccessReady(r){return Boolean(r?.login_id&&r?.auth_user_id)}
 function renderResellers(){
   if(!$('resellerList'))return
   const q=normalizeSearchText($('resellerSearch')?.value||'')
-  const rows=resellers.filter(r=>!q||[r.store_name,r.owner_name,r.email,r.whatsapp,r.phone,r.slug].some(v=>normalizeSearchText(v||'').includes(q)))
+  const rows=resellers.filter(r=>!q||[r.store_name,r.owner_name,r.login_id,r.email,r.whatsapp,r.phone,r.slug].some(v=>normalizeSearchText(v||'').includes(q)))
   $('resellerEmpty').classList.toggle('hidden',rows.length>0)
-  $('resellerList').innerHTML=rows.map(r=>`<article class="client-card glass reseller-card"><div class="card-head"><div><div class="card-title">${esc(r.store_name)}</div><div class="meta"><span class="badge ${r.enabled?'active':'revoked'}">${r.enabled?'Ativo':'Desativado'}</span><span>${esc(r.owner_name||'Sem responsável')}</span><span class="badge ${r.access_ready?'active':'pending'}">${r.access_ready?'Acesso vinculado':'Acesso pendente'}</span></div></div><strong class="money">${money(r.month_revenue||0)}</strong></div><div class="client-phone">${esc(r.whatsapp||r.phone||r.email||'Sem contato cadastrado')}</div><div class="reseller-metrics"><span><strong>${r.active_key_count||0}</strong> keys ativas</span><span><strong>${r.client_count||0}</strong> clientes</span><span><strong>${r.key_count||0}</strong> keys totais</span></div><div class="row-actions"><button class="mini primary" data-reseller-action="open" data-id="${r.id}">Abrir painel</button><button class="mini" data-reseller-action="edit" data-id="${r.id}">Editar</button><button class="mini" data-reseller-action="access" data-id="${r.id}">${r.access_ready?'Reenviar acesso':'Enviar acesso'}</button><button class="mini ${r.enabled?'danger':'success'}" data-reseller-action="status" data-id="${r.id}">${r.enabled?'Desativar':'Ativar'}</button><button class="mini danger" data-reseller-action="remove" data-id="${r.id}">Remover</button></div></article>`).join('')
+  $('resellerList').innerHTML=rows.map(r=>{const ready=resellerAccessReady(r);return`<article class="client-card glass reseller-card"><div class="card-head"><div><div class="card-title">${esc(r.store_name)}</div><div class="meta"><span class="badge ${r.enabled?'active':'revoked'}">${r.enabled?'Ativo':'Desativado'}</span><span>${esc(r.owner_name||'Sem responsável')}</span><span class="badge ${ready?'active':'pending'}">${ready?'Acesso configurado':'Acesso pendente'}</span></div></div><strong class="money">${money(r.month_revenue||0)}</strong></div><div class="client-phone">${esc(r.whatsapp||r.phone||r.email||'Sem contato cadastrado')}</div><div class="meta"><span>Login: <strong>${esc(r.login_id||'não configurado')}</strong></span></div><div class="reseller-metrics"><span><strong>${r.active_key_count||0}</strong> keys ativas</span><span><strong>${r.client_count||0}</strong> clientes</span><span><strong>${r.key_count||0}</strong> keys totais</span></div><div class="row-actions"><button class="mini primary" data-reseller-action="open" data-id="${r.id}">Abrir painel</button><button class="mini" data-reseller-action="edit" data-id="${r.id}">Editar</button><button class="mini" data-reseller-action="access" data-id="${r.id}">Gerenciar acesso</button><button class="mini ${r.enabled?'danger':'success'}" data-reseller-action="status" data-id="${r.id}">${r.enabled?'Desativar':'Ativar'}</button><button class="mini danger" data-reseller-action="remove" data-id="${r.id}">Remover</button></div></article>`}).join('')
 }
 function fillResellerForm(r=null){
   $('resellerForm').reset();if(!r)delete $('resellerSlug').dataset.touched;$('resellerId').value=r?.id||'';$('resellerModalTitle').textContent=r?'Editar revendedor':'Criar revendedor';$('saveResellerButton').textContent=r?'Salvar alterações':'Criar revendedor'
-  $('resellerStoreName').value=r?.store_name||'';$('resellerOwnerName').value=r?.owner_name||'';$('resellerEmail').value=r?.email||'';$('resellerWhatsapp').value=r?.whatsapp||r?.phone||'';$('resellerSlug').value=r?.slug||'';$('resellerPix').value=r?.pix_copy_paste||'';$('resellerNotes').value=r?.notes||''
+  $('resellerStoreName').value=r?.store_name||'';$('resellerOwnerName').value=r?.owner_name||'';$('resellerWhatsapp').value=r?.whatsapp||r?.phone||'';$('resellerLogin').value=r?.login_id||'';$('resellerPassword').value='';$('resellerPassword').required=!r;$('resellerPasswordHint').textContent=r?'Deixe em branco para manter a senha atual.':'Defina a senha inicial do revendedor.';$('resellerSlug').value=r?.slug||'';$('resellerPix').value=r?.pix_copy_paste||'';$('resellerNotes').value=r?.notes||''
   $('resellerPermOverview').checked=r?.permissions?.overview!==false;$('resellerPermKeys').checked=r?.permissions?.keys!==false;$('resellerPermClients').checked=r?.permissions?.clients!==false;$('resellerPermRevenue').checked=r?.permissions?.revenue!==false
+}
+function openResellerAccess(r){
+  if(!r)return
+  $('accessResellerId').value=r.id||''
+  $('accessResellerName').textContent=r.store_name||'Revendedor'
+  $('accessLogin').value=r.login_id||''
+  $('accessPassword').value=''
+  $('accessPassword').required=!resellerAccessReady(r)
+  $('accessPasswordHint2').textContent=resellerAccessReady(r)?'Deixe em branco para manter a senha atual.':'Defina uma senha para ativar o acesso.'
+  openModal('resellerAccessModal')
 }
 async function loadResellerDetail(id){
   resellerDetail=await resellerApi({action:'reseller_detail',reseller_id:id});renderResellerDetail();return resellerDetail
@@ -118,7 +130,7 @@ function renderResellerDetail(){
   if(!resellerDetail)return
   const r=resellerDetail.reseller,s=resellerDetail.summary||{}
   $('resellerDetailName').textContent=r.store_name||'Revendedor'
-  $('resellerDetailMeta').innerHTML=`<span class="badge ${r.enabled?'active':'revoked'}">${r.enabled?'Ativo':'Desativado'}</span><span>${esc(r.owner_name||'Sem responsável')}</span><span class="badge ${r.access_ready?'active':'pending'}">${r.access_ready?'Acesso vinculado':'Acesso pendente'}</span>${r.whatsapp?`<span>${esc(r.whatsapp)}</span>`:''}`
+  const ready=resellerAccessReady(r);$('resellerDetailMeta').innerHTML=`<span class="badge ${r.enabled?'active':'revoked'}">${r.enabled?'Ativo':'Desativado'}</span><span>${esc(r.owner_name||'Sem responsável')}</span><span class="badge ${ready?'active':'pending'}">${ready?'Acesso configurado':'Acesso pendente'}</span><span>Login: ${esc(r.login_id||'não configurado')}</span>${r.whatsapp?`<span>${esc(r.whatsapp)}</span>`:''}`
   $('toggleResellerButton').textContent=r.enabled?'Desativar revendedor':'Ativar revendedor';$('toggleResellerButton').className=r.enabled?'danger':'success'
   $('rdActiveKeys').textContent=s.active_keys||0;$('rdPendingKeys').textContent=s.pending_keys||0;$('rdExpiredKeys').textContent=s.expired_keys||0;$('rdClients').textContent=s.clients||0;$('rdDevices').textContent=s.devices||0;$('rdRevenue').textContent=money(s.month_revenue||0)
   $('rdStoreName').textContent=r.store_name||'—';$('rdStoreSlug').textContent=`Futuro endereço: /loja/${r.slug||'—'}`;$('rdOwnerName').textContent=r.owner_name||'—';$('rdOwnerContact').textContent=[r.whatsapp||r.phone,r.email].filter(Boolean).join(' • ')||'Sem contato';$('rdTotalRevenue').textContent=money(s.total_revenue||0)
@@ -255,12 +267,48 @@ $('resellerSearch').addEventListener('input',renderResellers)
 $('newResellerButton').addEventListener('click',()=>{fillResellerForm();openModal('resellerModal')})
 $('resellerStoreName').addEventListener('input',()=>{if(!$('resellerId').value&&!$('resellerSlug').dataset.touched)$('resellerSlug').value=resellerSlug($('resellerStoreName').value)})
 $('resellerSlug').addEventListener('input',()=>{$('resellerSlug').dataset.touched='1'})
-$('resellerForm').addEventListener('submit',async e=>{e.preventDefault();const id=$('resellerId').value,btn=$('saveResellerButton');btn.disabled=true;try{const payload={action:id?'update_reseller':'create_reseller',store_name:$('resellerStoreName').value,owner_name:$('resellerOwnerName').value,email:$('resellerEmail').value,whatsapp:$('resellerWhatsapp').value,phone:$('resellerWhatsapp').value,slug:$('resellerSlug').value||resellerSlug($('resellerStoreName').value),pix_copy_paste:$('resellerPix').value,notes:$('resellerNotes').value,permissions:{overview:$('resellerPermOverview').checked,keys:$('resellerPermKeys').checked,clients:$('resellerPermClients').checked,revenue:$('resellerPermRevenue').checked}};if(id)payload.reseller_id=id;const d=await resellerApi(payload);closeModals();await loadResellers();if(id&&resellerDetail?.reseller?.id===id)await loadResellerDetail(id);else if(!id&&d.reseller?.id){$('resellerListView').classList.add('hidden');$('resellerDetailView').classList.remove('hidden');await loadResellerDetail(d.reseller.id)}if(id)showFlash('Revendedor atualizado.');else if(d.access?.ok)handleAccessDelivery(d.access);else if(d.access?.error)showFlash('Revendedor criado, mas não foi possível preparar o acesso: '+(d.access.detail||d.access.error));else showFlash('Revendedor criado.')}catch(err){showFlash(err.message)}finally{btn.disabled=false;btn.textContent=id?'Salvar alterações':'Criar revendedor'}})
-$('resellerList').addEventListener('click',async e=>{const b=e.target.closest('[data-reseller-action]');if(!b)return;const r=resellers.find(x=>x.id===b.dataset.id);if(!r)return;try{if(b.dataset.resellerAction==='open'){$('resellerListView').classList.add('hidden');$('resellerDetailView').classList.remove('hidden');resellerSubTab='overview';await loadResellerDetail(r.id);return}if(b.dataset.resellerAction==='edit'){fillResellerForm(r);openModal('resellerModal');return}if(b.dataset.resellerAction==='access'){const d=await resellerApi({action:'send_access',reseller_id:r.id});await loadResellers();handleAccessDelivery(d);return}if(b.dataset.resellerAction==='status'){if(r.enabled&&!confirm(`Desativar o revendedor ${r.store_name}?`))return;await resellerApi({action:'set_reseller_status',reseller_id:r.id,enabled:!r.enabled});await loadResellers();showFlash(r.enabled?'Revendedor desativado.':'Revendedor ativado.');return}if(b.dataset.resellerAction==='remove'){const typed=prompt(`REMOVER REVENDEDOR\n\nEsta ação remove o acesso e o cadastro de ${r.store_name}.\nAs keys, clientes e vendas existentes NÃO serão apagados.\n\nDigite exatamente o nome da loja para confirmar:\n${r.store_name}`,'');if(typed!==r.store_name){if(typed!==null)showFlash('Nome diferente. Remoção cancelada.');return}const d=await resellerDeleteApi({reseller_id:r.id});await loadResellers();const kept=(d.detached?.keys||0)+(d.detached?.clients||0);showFlash(`Revendedor removido. ${kept} registro(s) de keys/clientes preservado(s).`);return}}catch(err){showFlash(err.message)}})
+$('resellerForm').addEventListener('submit',async e=>{
+  e.preventDefault()
+  const id=$('resellerId').value,btn=$('saveResellerButton'),login=$('resellerLogin').value.trim().toLowerCase(),password=$('resellerPassword').value
+  if(!login){showFlash('Defina o login do painel.');return}
+  if(!/^[a-z0-9._-]{3,40}$/.test(login)){showFlash('Login inválido. Use 3 a 40 caracteres: letras, números, ponto, hífen ou underline.');return}
+  if(!id&&!password){showFlash('Defina a senha inicial do revendedor.');return}
+  if(password&&password.length<6){showFlash('A senha deve ter pelo menos 6 caracteres.');return}
+  btn.disabled=true
+  try{
+    const payload={action:id?'update_reseller':'create_reseller',store_name:$('resellerStoreName').value,owner_name:$('resellerOwnerName').value,whatsapp:$('resellerWhatsapp').value,phone:$('resellerWhatsapp').value,slug:$('resellerSlug').value||resellerSlug($('resellerStoreName').value),pix_copy_paste:$('resellerPix').value,notes:$('resellerNotes').value,permissions:{overview:$('resellerPermOverview').checked,keys:$('resellerPermKeys').checked,clients:$('resellerPermClients').checked,revenue:$('resellerPermRevenue').checked}}
+    if(id)payload.reseller_id=id
+    const d=await resellerApi(payload)
+    const resellerId=id||d.reseller?.id
+    if(!resellerId)throw new Error('Não foi possível identificar o revendedor criado.')
+    await resellerCredentialsApi({reseller_id:resellerId,login_id:login,...(password?{password}:{})})
+    closeModals()
+    await loadResellers()
+    if(id&&resellerDetail?.reseller?.id===id)await loadResellerDetail(id)
+    else if(!id){$('resellerListView').classList.add('hidden');$('resellerDetailView').classList.remove('hidden');await loadResellerDetail(resellerId)}
+    showFlash(id?'Revendedor e acesso atualizados.':'Revendedor criado com login e senha.')
+  }catch(err){showFlash(err.message)}finally{btn.disabled=false;btn.textContent=id?'Salvar alterações':'Criar revendedor'}
+})
+$('resellerList').addEventListener('click',async e=>{const b=e.target.closest('[data-reseller-action]');if(!b)return;const r=resellers.find(x=>x.id===b.dataset.id);if(!r)return;try{if(b.dataset.resellerAction==='open'){$('resellerListView').classList.add('hidden');$('resellerDetailView').classList.remove('hidden');resellerSubTab='overview';await loadResellerDetail(r.id);return}if(b.dataset.resellerAction==='edit'){fillResellerForm(r);openModal('resellerModal');return}if(b.dataset.resellerAction==='access'){openResellerAccess(r);return}if(b.dataset.resellerAction==='status'){if(r.enabled&&!confirm(`Desativar o revendedor ${r.store_name}?`))return;await resellerApi({action:'set_reseller_status',reseller_id:r.id,enabled:!r.enabled});await loadResellers();showFlash(r.enabled?'Revendedor desativado.':'Revendedor ativado.');return}if(b.dataset.resellerAction==='remove'){const typed=prompt(`REMOVER REVENDEDOR\n\nEsta ação remove o acesso e o cadastro de ${r.store_name}.\nAs keys, clientes e vendas existentes NÃO serão apagados.\n\nDigite exatamente o nome da loja para confirmar:\n${r.store_name}`,'');if(typed!==r.store_name){if(typed!==null)showFlash('Nome diferente. Remoção cancelada.');return}const d=await resellerDeleteApi({reseller_id:r.id});await loadResellers();const kept=(d.detached?.keys||0)+(d.detached?.clients||0);showFlash(`Revendedor removido. ${kept} registro(s) de keys/clientes preservado(s).`);return}}catch(err){showFlash(err.message)}})
 $('backToResellers').addEventListener('click',()=>{$('resellerDetailView').classList.add('hidden');$('resellerListView').classList.remove('hidden');resellerDetail=null;renderResellers()})
 $('editResellerButton').addEventListener('click',()=>{if(resellerDetail?.reseller){fillResellerForm(resellerDetail.reseller);openModal('resellerModal')}})
 $('openResellerPanelButton').addEventListener('click',()=>window.open(RESELLER_PANEL_URL,'_blank'))
-$('sendResellerAccessButton').addEventListener('click',async()=>{const r=resellerDetail?.reseller;if(!r)return;try{const d=await resellerApi({action:'send_access',reseller_id:r.id});await Promise.all([loadResellers(),loadResellerDetail(r.id)]);handleAccessDelivery(d)}catch(err){showFlash(err.message)}})
+$('sendResellerAccessButton').addEventListener('click',()=>{const r=resellerDetail?.reseller;if(r)openResellerAccess(r)})
+$('resellerAccessForm').addEventListener('submit',async e=>{
+  e.preventDefault()
+  const resellerId=$('accessResellerId').value,login=$('accessLogin').value.trim().toLowerCase(),password=$('accessPassword').value,btn=$('saveResellerAccessButton')
+  if(!resellerId)return
+  if(!/^[a-z0-9._-]{3,40}$/.test(login)){showFlash('Login inválido. Use 3 a 40 caracteres: letras, números, ponto, hífen ou underline.');return}
+  if($('accessPassword').required&&!password){showFlash('Defina uma senha para ativar o acesso.');return}
+  if(password&&password.length<6){showFlash('A senha deve ter pelo menos 6 caracteres.');return}
+  btn.disabled=true
+  try{
+    await resellerCredentialsApi({reseller_id:resellerId,login_id:login,...(password?{password}:{})})
+    closeModals();await loadResellers();if(resellerDetail?.reseller?.id===resellerId)await loadResellerDetail(resellerId);showFlash('Acesso do revendedor atualizado.')
+  }catch(err){showFlash(err.message)}finally{btn.disabled=false}
+})
+$('copyResellerLogin').addEventListener('click',()=>{const v=$('accessLogin').value.trim();if(v)copyText(v,'Login copiado.');else showFlash('Nenhum login definido.')})
+$('openResellerLoginPage').addEventListener('click',()=>window.open(RESELLER_PANEL_URL,'_blank'))
 $('copyAccessLink').addEventListener('click',()=>copyText($('accessLinkValue').value,'Link de acesso copiado.'))
 $('toggleResellerButton').addEventListener('click',async()=>{const r=resellerDetail?.reseller;if(!r)return;if(r.enabled&&!confirm(`Desativar o revendedor ${r.store_name}?`))return;try{await resellerApi({action:'set_reseller_status',reseller_id:r.id,enabled:!r.enabled});await Promise.all([loadResellers(),loadResellerDetail(r.id)]);showFlash(r.enabled?'Revendedor desativado.':'Revendedor ativado.')}catch(err){showFlash(err.message)}})
 $('removeResellerButton').addEventListener('click',async()=>{const r=resellerDetail?.reseller;if(!r)return;const typed=prompt(`REMOVER REVENDEDOR\n\nEsta ação remove o acesso e o cadastro de ${r.store_name}.\nAs keys, clientes e vendas existentes NÃO serão apagados.\n\nDigite exatamente o nome da loja para confirmar:\n${r.store_name}`,'');if(typed!==r.store_name){if(typed!==null)showFlash('Nome diferente. Remoção cancelada.');return}try{const d=await resellerDeleteApi({reseller_id:r.id});resellerDetail=null;$('resellerDetailView').classList.add('hidden');$('resellerListView').classList.remove('hidden');await loadResellers();const kept=(d.detached?.keys||0)+(d.detached?.clients||0);showFlash(`Revendedor removido. ${kept} registro(s) de keys/clientes preservado(s).`)}catch(err){showFlash(err.message)}})

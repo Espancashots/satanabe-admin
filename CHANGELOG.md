@@ -1,3 +1,11 @@
+# v1.1.3 Alpha — Login e senha do revendedor no Admin
+
+- Adicionado Login do painel e Senha do painel ao cadastro/edição de revendedores.
+- Adicionado botão Gerenciar acesso para trocar login ou senha depois.
+- Removido o e-mail como credencial de acesso na interface de revendedores.
+- Integração com `admin-reseller-credentials-api`.
+- Botão Abrir painel agora leva à tela de login por usuário + senha.
+
 ## v1.1.2 Alpha
 
 - Adiciona botão **Remover** na lista de revendedores e **Remover revendedor** dentro do painel individual.
