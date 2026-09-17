@@ -1,3 +1,11 @@
+## v1.1.2 Alpha
+
+- Adiciona botão **Remover** na lista de revendedores e **Remover revendedor** dentro do painel individual.
+- A remoção exclui o cadastro do revendedor e sua conta de autenticação.
+- Keys, clientes e transações existentes são preservados e ficam sem `reseller_id`.
+- A confirmação exige digitar exatamente o nome da loja.
+- Atualiza o endereço do painel para `https://espancashots.github.io/revendedor-site-/`.
+
 ## v1.1.1 Alpha
 - Integração do acesso do revendedor com Supabase Auth.
 - Envio e reenvio de acesso por e-mail quando SMTP permitir.

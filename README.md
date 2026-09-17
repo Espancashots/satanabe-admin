@@ -1,4 +1,4 @@
-# Satanabe Admin v1.1.1 Alpha
+# Satanabe Admin v1.1.2 Alpha
 
 Painel administrativo responsivo para gerenciamento de keys, clientes, cobranças/renovações, revendedores, patches e logs.
 
@@ -56,6 +56,13 @@ A área de revendedores usa uma Edge Function protegida por sessão do Supabase 
 
 `1.1.1-alpha`
 
+
+## v1.1.2 Alpha
+
+- Adiciona remoção segura de revendedores.
+- Remove a conta de acesso do revendedor, preservando keys, clientes e histórico financeiro.
+- Exige confirmação digitando o nome exato da loja.
+- Corrige o endereço do painel de revendedores para `revendedor-site-`.
 
 ## v1.1.1 Alpha
 - Acesso de revendedor por e-mail integrado ao Supabase Auth.
